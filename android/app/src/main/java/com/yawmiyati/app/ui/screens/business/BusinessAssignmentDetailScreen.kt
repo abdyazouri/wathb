@@ -47,6 +47,7 @@ import com.yawmiyati.app.ui.components.ConfirmCancelDialog
 import com.yawmiyati.app.viewmodels.AssignmentWorkActionState
 import com.yawmiyati.app.viewmodels.BusinessAssignmentViewModel
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,130 +128,135 @@ fun BusinessAssignmentDetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Refreshable(
+            isRefreshing = false,
+            onRefresh = { viewModel.load(assignmentId) },
+            modifier = Modifier.padding(padding)
         ) {
-            // Worker contact card
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "العامل",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(workerPhone, style = MaterialTheme.typography.titleMedium)
-                    if (workerPhone.isNotBlank()) {
-                        val localPhone = if (workerPhone.startsWith("+970"))
-                            "0" + workerPhone.removePrefix("+970")
-                        else workerPhone
-                        val waPhone = workerPhone.replace("+", "")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = {
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_DIAL, Uri.parse("tel:$localPhone"))
-                                    )
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) { Text("اتصال") }
-                            OutlinedButton(
-                                onClick = {
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$waPhone"))
-                                    )
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) { Text("واتساب") }
-                        }
-                    }
-                }
-            }
-
-            // Status + action card
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "حالة المهمة",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    when (currentStatus) {
-                        "OFFERED" -> {
-                            Text("بانتظار قبول العامل", style = MaterialTheme.typography.bodyLarge)
-                        }
-                        "ACCEPTED", "ACTIVE" -> {
-                            Button(
-                                onClick = { showCompleteConfirm = true },
-                                enabled = !isActionLoading,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                if (isActionLoading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(18.dp),
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                } else {
-                                    Text("تأكيد إتمام العمل")
-                                }
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Worker contact card
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "العامل",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(workerPhone, style = MaterialTheme.typography.titleMedium)
+                        if (workerPhone.isNotBlank()) {
+                            val localPhone = if (workerPhone.startsWith("+970"))
+                                "0" + workerPhone.removePrefix("+970")
+                            else workerPhone
+                            val waPhone = workerPhone.replace("+", "")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    onClick = {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_DIAL, Uri.parse("tel:$localPhone"))
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("اتصال") }
+                                OutlinedButton(
+                                    onClick = {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$waPhone"))
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("واتساب") }
                             }
                         }
-                        "COMPLETED" -> {
-                            Text(
-                                "✓ تم تأكيد إتمام العمل",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
-                            Text(
-                                "بانتظار إقرار العامل على استلام أجره",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        "CANCELLED" -> {
-                            Text(
-                                "ملغاة",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        "DECLINED" -> {
-                            Text(
-                                "رفض العامل المهمة",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        else -> {
-                            Text(
-                                StatusLabels.assignment(currentStatus),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                    }
+                }
+    
+                // Status + action card
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "حالة المهمة",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        when (currentStatus) {
+                            "OFFERED" -> {
+                                Text("بانتظار قبول العامل", style = MaterialTheme.typography.bodyLarge)
+                            }
+                            "ACCEPTED", "ACTIVE" -> {
+                                Button(
+                                    onClick = { showCompleteConfirm = true },
+                                    enabled = !isActionLoading,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (isActionLoading) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(18.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        Text("تأكيد إتمام العمل")
+                                    }
+                                }
+                            }
+                            "COMPLETED" -> {
+                                Text(
+                                    "✓ تم تأكيد إتمام العمل",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                                Text(
+                                    "بانتظار إقرار العامل على استلام أجره",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            "CANCELLED" -> {
+                                Text(
+                                    "ملغاة",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            "DECLINED" -> {
+                                Text(
+                                    "رفض العامل المهمة",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            else -> {
+                                Text(
+                                    StatusLabels.assignment(currentStatus),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
+    
+                // Cancel button (OFFERED or ACCEPTED only)
+                if (currentStatus in listOf("OFFERED", "ACCEPTED")) {
+                    OutlinedButton(
+                        onClick = { showCancelDialog = true },
+                        enabled = !isActionLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    ) { Text("إلغاء المهمة") }
+                }
+    
+                Spacer(Modifier.height(8.dp))
             }
-
-            // Cancel button (OFFERED or ACCEPTED only)
-            if (currentStatus in listOf("OFFERED", "ACCEPTED")) {
-                OutlinedButton(
-                    onClick = { showCancelDialog = true },
-                    enabled = !isActionLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
-                ) { Text("إلغاء المهمة") }
-            }
-
-            Spacer(Modifier.height(8.dp))
         }
     }
 }

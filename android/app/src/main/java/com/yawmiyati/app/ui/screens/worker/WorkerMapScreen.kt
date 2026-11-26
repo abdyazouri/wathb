@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -193,6 +194,23 @@ fun WorkerMapScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+
+            // Reload jobs — the map takes the drag gesture, so no pull-to-refresh here.
+            FloatingActionButton(
+                onClick = { jobsViewModel.refresh() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 124.dp, end = 12.dp)
+                    .size(48.dp),
+                containerColor = WathbDeepTeal,
+                contentColor = Color.White
+            ) {
+                if (jobsState is JobsUiState.Loading) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+                } else {
+                    Icon(Icons.Filled.Refresh, contentDescription = "تحديث الوظائف")
+                }
+            }
 
             // GPS locate button — top-end, pushed down from edge
             FloatingActionButton(

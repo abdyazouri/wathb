@@ -42,6 +42,8 @@ import com.yawmiyati.app.ui.components.LoadingIndicator
 import com.yawmiyati.app.viewmodels.AdminWorkersUiState
 import com.yawmiyati.app.viewmodels.AdminWorkersViewModel
 import com.yawmiyati.app.viewmodels.WorkerActionState
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,34 +118,40 @@ fun AdminWorkersScreen(
 
             Spacer(Modifier.height(4.dp))
 
-            when (val state = uiState) {
-                is AdminWorkersUiState.Loading -> LoadingIndicator()
-                is AdminWorkersUiState.Empty   -> EmptyState(
-                    message = "لا يوجد عمال مطابقون",
-                    modifier = Modifier.fillMaxSize()
-                )
-                is AdminWorkersUiState.Error   -> ErrorMessage(
-                    message = state.message,
-                    onRetry = { viewModel.loadWorkers() }
-                )
-                is AdminWorkersUiState.Success -> {
-                    val isActionLoading = actionState is WorkerActionState.Loading
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        item { Spacer(Modifier.height(4.dp)) }
-                        items(state.workers, key = { it.id }) { worker ->
-                            WorkerCard(
-                                worker = worker,
-                                isActionLoading = isActionLoading,
-                                onVerify  = { viewModel.verifyWorker(worker.id) },
-                                onSuspend = { viewModel.suspendWorker(worker.id) }
-                            )
+            Refreshable(
+                isRefreshing = false,
+                onRefresh = { viewModel.loadWorkers() },
+                modifier = Modifier
+            ) {
+                when (val state = uiState) {
+                    is AdminWorkersUiState.Loading -> PullableState { LoadingIndicator() }
+                    is AdminWorkersUiState.Empty   -> PullableState { EmptyState(
+                        message = "لا يوجد عمال مطابقون",
+                        modifier = Modifier.fillMaxSize()
+                    ) }
+                    is AdminWorkersUiState.Error   -> PullableState { ErrorMessage(
+                        message = state.message,
+                        onRetry = { viewModel.loadWorkers() }
+                    ) }
+                    is AdminWorkersUiState.Success -> {
+                        val isActionLoading = actionState is WorkerActionState.Loading
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item { Spacer(Modifier.height(4.dp)) }
+                            items(state.workers, key = { it.id }) { worker ->
+                                WorkerCard(
+                                    worker = worker,
+                                    isActionLoading = isActionLoading,
+                                    onVerify  = { viewModel.verifyWorker(worker.id) },
+                                    onSuspend = { viewModel.suspendWorker(worker.id) }
+                                )
+                            }
+                            item { Spacer(Modifier.height(16.dp)) }
                         }
-                        item { Spacer(Modifier.height(16.dp)) }
                     }
                 }
             }

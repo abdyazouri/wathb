@@ -60,6 +60,12 @@ class WorkerAssignmentDetailViewModel(
 
     private var currentAssignmentId: String? = null
 
+    /** Pull-to-refresh: reload everything even for the same assignment. */
+    fun refresh(assignmentId: String) {
+        currentAssignmentId = null
+        load(assignmentId)
+    }
+
     fun load(assignmentId: String) {
         if (currentAssignmentId == assignmentId) return
         currentAssignmentId = assignmentId

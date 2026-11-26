@@ -58,6 +58,8 @@ import com.yawmiyati.app.viewmodels.DisputesUiState
 import com.yawmiyati.app.viewmodels.canSettleWage
 import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,32 +163,38 @@ fun AdminDisputesScreen(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
             }
 
-            when (val state = uiState) {
-                is DisputesUiState.Loading -> LoadingIndicator()
-                is DisputesUiState.Empty -> EmptyState(
-                    message = "لا توجد نزاعات أجور مفتوحة",
-                    modifier = Modifier.fillMaxSize()
-                )
-                is DisputesUiState.Error -> ErrorMessage(
-                    message = state.message,
-                    onRetry = { viewModel.load() },
-                    modifier = Modifier.fillMaxSize()
-                )
-                is DisputesUiState.Success -> LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    item { Spacer(Modifier.height(8.dp)) }
-                    items(state.disputes, key = { it.id }) { dispute ->
-                        DisputeCard(
-                            dispute = dispute,
-                            isActionLoading = actionState is DisputeActionState.Loading,
-                            onAction = { action -> resolveDialog = dispute to action }
-                        )
+            Refreshable(
+                isRefreshing = false,
+                onRefresh = { viewModel.load(); viewModel.loadStaleWages() },
+                modifier = Modifier
+            ) {
+                when (val state = uiState) {
+                    is DisputesUiState.Loading -> PullableState { LoadingIndicator() }
+                    is DisputesUiState.Empty -> PullableState { EmptyState(
+                        message = "لا توجد نزاعات أجور مفتوحة",
+                        modifier = Modifier.fillMaxSize()
+                    ) }
+                    is DisputesUiState.Error -> PullableState { ErrorMessage(
+                        message = state.message,
+                        onRetry = { viewModel.load() },
+                        modifier = Modifier.fillMaxSize()
+                    ) }
+                    is DisputesUiState.Success -> LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        item { Spacer(Modifier.height(8.dp)) }
+                        items(state.disputes, key = { it.id }) { dispute ->
+                            DisputeCard(
+                                dispute = dispute,
+                                isActionLoading = actionState is DisputeActionState.Loading,
+                                onAction = { action -> resolveDialog = dispute to action }
+                            )
+                        }
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
                 }
             }
         }

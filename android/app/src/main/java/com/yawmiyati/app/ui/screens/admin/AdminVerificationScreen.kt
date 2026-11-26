@@ -54,6 +54,8 @@ import com.yawmiyati.app.viewmodels.AdminUiState
 import com.yawmiyati.app.viewmodels.AdminViewModel
 import com.yawmiyati.app.viewmodels.VerifyActionState
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,35 +125,41 @@ fun AdminVerificationScreen(
                 }
             }
 
-            when (val state = uiState) {
-                is AdminUiState.Loading -> LoadingIndicator()
-                is AdminUiState.Error   -> ErrorMessage(
-                    message = state.message,
-                    onRetry = { viewModel.loadBusinesses(selectedFilter) }
-                )
-                is AdminUiState.Empty   -> {
-                    Text(
-                        text = "لا توجد نتائج",
-                        modifier = Modifier.padding(32.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                is AdminUiState.Success -> {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    ) {
-                        items(state.businesses, key = { it.id }) { business ->
-                            BusinessCard(
-                                business = business,
-                                onClick = { dialogBusiness = business }
-                            )
-                        }
-                        item {
-                            SupportWhatsappButton(
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
-                            )
+            Refreshable(
+                isRefreshing = false,
+                onRefresh = { viewModel.loadBusinesses(selectedFilter) },
+                modifier = Modifier
+            ) {
+                when (val state = uiState) {
+                    is AdminUiState.Loading -> PullableState { LoadingIndicator() }
+                    is AdminUiState.Error   -> PullableState { ErrorMessage(
+                        message = state.message,
+                        onRetry = { viewModel.loadBusinesses(selectedFilter) }
+                    ) }
+                    is AdminUiState.Empty   -> PullableState {
+                        Text(
+                            text = "لا توجد نتائج",
+                            modifier = Modifier.padding(32.dp),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    is AdminUiState.Success -> {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        ) {
+                            items(state.businesses, key = { it.id }) { business ->
+                                BusinessCard(
+                                    business = business,
+                                    onClick = { dialogBusiness = business }
+                                )
+                            }
+                            item {
+                                SupportWhatsappButton(
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+                                )
+                            }
                         }
                     }
                 }

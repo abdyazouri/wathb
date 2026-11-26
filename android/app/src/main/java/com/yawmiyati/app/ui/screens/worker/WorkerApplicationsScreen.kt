@@ -54,6 +54,7 @@ import com.yawmiyati.app.viewmodels.AssignmentsUiState
 import com.yawmiyati.app.viewmodels.AssignmentActionState
 import java.time.LocalDateTime
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import com.yawmiyati.app.ui.components.PullableState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -128,7 +129,7 @@ fun WorkerApplicationsScreen(
                     modifier = Modifier.padding(padding).fillMaxSize()
                 ) {
                     if (items.isEmpty()) {
-                        EmptyState(message = "لم تتقدم لأي وظيفة بعد", modifier = Modifier.fillMaxSize())
+                        PullableState { EmptyState(message = "لم تتقدم لأي وظيفة بعد", modifier = Modifier.fillMaxSize()) }
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),

@@ -40,6 +40,8 @@ import com.yawmiyati.app.ui.components.ErrorMessage
 import com.yawmiyati.app.ui.components.LoadingIndicator
 import com.yawmiyati.app.viewmodels.NotificationsUiState
 import com.yawmiyati.app.viewmodels.NotificationsViewModel
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,16 +89,25 @@ fun NotificationsScreen(
                 onRefresh = { viewModel.load() },
                 modifier = Modifier.padding(padding)
             ) {
-                EmptyState(
-                    message = "لا توجد إشعارات",
-                    modifier = Modifier.fillMaxSize()
-                )
+                PullableState {
+                    EmptyState(
+                        message = "لا توجد إشعارات",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
             }
-            is NotificationsUiState.Error -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.load() },
+            is NotificationsUiState.Error -> Refreshable(
+                isRefreshing = false,
+                onRefresh = { viewModel.load() },
                 modifier = Modifier.padding(padding)
-            )
+            ) {
+                PullableState {
+                    ErrorMessage(
+                        message = state.message,
+                        onRetry = { viewModel.load() }
+                    )
+                }
+            }
             is NotificationsUiState.Success -> PullToRefreshBox(
                 isRefreshing = isRefreshing,
                 onRefresh = { viewModel.load() },

@@ -49,6 +49,8 @@ import com.yawmiyati.app.viewmodels.BusinessProfileViewModel
 import com.yawmiyati.app.viewmodels.DeleteAccountState
 import com.yawmiyati.app.ui.utils.StatusLabels
 import com.yawmiyati.app.ui.components.BiometricLoginSwitch
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,159 +100,163 @@ fun BusinessProfileScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        when (val state = uiState) {
-            is BusinessProfileUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(padding))
-            is BusinessProfileUiState.Error   -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.load() },
-                modifier = Modifier.padding(padding)
-            )
-            is BusinessProfileUiState.Success -> {
-                val profile = state.profile
-                var legalName       by remember(profile) { mutableStateOf(profile.legalName) }
-                var tradeName       by remember(profile) { mutableStateOf(profile.tradeName) }
-                var locationAddress by remember(profile) { mutableStateOf(profile.locationAddress) }
-                var locationCity    by remember(profile) { mutableStateOf(profile.locationCity) }
-                var contactName     by remember(profile) { mutableStateOf(profile.contactName) }
-                var contactPhone    by remember(profile) { mutableStateOf(profile.contactPhone) }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 16.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Spacer(Modifier.height(4.dp))
-
-                    // Read-only info
-                    if (profile.phone.isNotBlank()) {
-                        Text(
-                            text = "الهاتف: ${profile.phone}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (!profile.email.isNullOrBlank()) {
-                        Text(
-                            text = "البريد: ${profile.email}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    val verStatus = StatusLabels.verificationForOwner(profile.verificationStatus) to
-                        when (profile.verificationStatus) {
-                            "APPROVED"  -> MaterialTheme.colorScheme.primary
-                            "PENDING"   -> MaterialTheme.colorScheme.secondary
-                            "REJECTED"  -> MaterialTheme.colorScheme.error
-                            "SUSPENDED" -> MaterialTheme.colorScheme.error
-                            else        -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    Surface(
-                        color = verStatus.second.copy(alpha = 0.12f),
-                        shape = MaterialTheme.shapes.small
+        Refreshable(
+            isRefreshing = false,
+            onRefresh = { viewModel.load() },
+            modifier = Modifier.padding(padding)
+        ) {
+            when (val state = uiState) {
+                is BusinessProfileUiState.Loading -> PullableState { LoadingIndicator() }
+                is BusinessProfileUiState.Error   -> PullableState { ErrorMessage(
+                    message = state.message,
+                    onRetry = { viewModel.load() }
+                ) }
+                is BusinessProfileUiState.Success -> {
+                    val profile = state.profile
+                    var legalName       by remember(profile) { mutableStateOf(profile.legalName) }
+                    var tradeName       by remember(profile) { mutableStateOf(profile.tradeName) }
+                    var locationAddress by remember(profile) { mutableStateOf(profile.locationAddress) }
+                    var locationCity    by remember(profile) { mutableStateOf(profile.locationCity) }
+                    var contactName     by remember(profile) { mutableStateOf(profile.contactName) }
+                    var contactPhone    by remember(profile) { mutableStateOf(profile.contactPhone) }
+    
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            verStatus.first,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = verStatus.second,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.height(4.dp))
-
-                    OutlinedTextField(
-                        value = legalName,
-                        onValueChange = { legalName = it },
-                        label = { Text("الاسم القانوني") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = tradeName,
-                        onValueChange = { tradeName = it },
-                        label = { Text("الاسم التجاري") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = locationCity,
-                        onValueChange = { locationCity = it },
-                        label = { Text("المدينة") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = locationAddress,
-                        onValueChange = { locationAddress = it },
-                        label = { Text("العنوان") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = contactName,
-                        onValueChange = { contactName = it },
-                        label = { Text("اسم المسؤول") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = contactPhone,
-                        onValueChange = { contactPhone = it },
-                        label = { Text("هاتف التواصل") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Button(
-                        onClick = {
-                            viewModel.save(
-                                legalName, tradeName, locationAddress,
-                                locationCity, contactName, contactPhone
+                        Spacer(Modifier.height(4.dp))
+    
+                        // Read-only info
+                        if (profile.phone.isNotBlank()) {
+                            Text(
+                                text = "الهاتف: ${profile.phone}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = saveState !is BusinessProfileSaveState.Saving,
-                    ) {
-                        Text(if (saveState is BusinessProfileSaveState.Saving) "جارٍ الحفظ..." else "حفظ")
-                    }
-
-                    if (onLogout != null) {
+                        }
+                        if (!profile.email.isNullOrBlank()) {
+                            Text(
+                                text = "البريد: ${profile.email}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+    
+                        val verStatus = StatusLabels.verificationForOwner(profile.verificationStatus) to
+                            when (profile.verificationStatus) {
+                                "APPROVED"  -> MaterialTheme.colorScheme.primary
+                                "PENDING"   -> MaterialTheme.colorScheme.secondary
+                                "REJECTED"  -> MaterialTheme.colorScheme.error
+                                "SUSPENDED" -> MaterialTheme.colorScheme.error
+                                else        -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        Surface(
+                            color = verStatus.second.copy(alpha = 0.12f),
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Text(
+                                verStatus.first,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = verStatus.second,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+    
+                        Spacer(Modifier.height(4.dp))
+    
+                        OutlinedTextField(
+                            value = legalName,
+                            onValueChange = { legalName = it },
+                            label = { Text("الاسم القانوني") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        OutlinedTextField(
+                            value = tradeName,
+                            onValueChange = { tradeName = it },
+                            label = { Text("الاسم التجاري") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        OutlinedTextField(
+                            value = locationCity,
+                            onValueChange = { locationCity = it },
+                            label = { Text("المدينة") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        OutlinedTextField(
+                            value = locationAddress,
+                            onValueChange = { locationAddress = it },
+                            label = { Text("العنوان") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        OutlinedTextField(
+                            value = contactName,
+                            onValueChange = { contactName = it },
+                            label = { Text("اسم المسؤول") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        OutlinedTextField(
+                            value = contactPhone,
+                            onValueChange = { contactPhone = it },
+                            label = { Text("هاتف التواصل") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        Spacer(Modifier.height(8.dp))
+    
+                        Button(
+                            onClick = {
+                                viewModel.save(
+                                    legalName, tradeName, locationAddress,
+                                    locationCity, contactName, contactPhone
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = saveState !is BusinessProfileSaveState.Saving,
+                        ) {
+                            Text(if (saveState is BusinessProfileSaveState.Saving) "جارٍ الحفظ..." else "حفظ")
+                        }
+    
+                        if (onLogout != null) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = onLogout,
+                                modifier = Modifier.fillMaxWidth(),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.ExitToApp, null, modifier = Modifier.padding(end = 8.dp))
+                                Text("تسجيل الخروج")
+                            }
+                        }
+    
+                        Spacer(Modifier.height(8.dp))
+                        BiometricLoginSwitch(authViewModel)
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
-                            onClick = onLogout,
+                            onClick = { showDeleteDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ExitToApp, null, modifier = Modifier.padding(end = 8.dp))
-                            Text("تسجيل الخروج")
+                            Text("حذف حسابي")
                         }
+    
+                        Spacer(Modifier.height(16.dp))
                     }
-
-                    Spacer(Modifier.height(8.dp))
-                    BiometricLoginSwitch(authViewModel)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("حذف حسابي")
-                    }
-
-                    Spacer(Modifier.height(16.dp))
                 }
             }
         }

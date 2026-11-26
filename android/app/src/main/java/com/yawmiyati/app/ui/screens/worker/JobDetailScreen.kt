@@ -60,6 +60,8 @@ import com.yawmiyati.app.ui.utils.toArabic
 import com.yawmiyati.app.viewmodels.ApplyUiState
 import com.yawmiyati.app.viewmodels.JobDetailUiState
 import com.yawmiyati.app.viewmodels.JobDetailViewModel
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,17 +121,23 @@ fun JobDetailScreen(
                 .imePadding()
         ) {
             Box(modifier = Modifier.weight(1f)) {
-                when (val state = jobState) {
-                    is JobDetailUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize())
-                    is JobDetailUiState.Error   -> ErrorMessage(
-                        message = state.message,
-                        onRetry = { viewModel.loadJob(jobId) },
-                        modifier = Modifier.fillMaxSize()
-                    )
-                    is JobDetailUiState.Success -> JobDetailContent(
-                        job = state.job,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                Refreshable(
+                    isRefreshing = false,
+                    onRefresh = { viewModel.loadJob(jobId) },
+                    modifier = Modifier
+                ) {
+                    when (val state = jobState) {
+                        is JobDetailUiState.Loading -> PullableState { LoadingIndicator(modifier = Modifier.fillMaxSize()) }
+                        is JobDetailUiState.Error   -> PullableState { ErrorMessage(
+                            message = state.message,
+                            onRetry = { viewModel.loadJob(jobId) },
+                            modifier = Modifier.fillMaxSize()
+                        ) }
+                        is JobDetailUiState.Success -> JobDetailContent(
+                            job = state.job,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
 

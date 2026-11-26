@@ -43,6 +43,8 @@ import com.yawmiyati.app.viewmodels.ApplicationActionState
 import com.yawmiyati.app.viewmodels.ApplicationsUiState
 import com.yawmiyati.app.viewmodels.JobApplicationsViewModel
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,38 +80,42 @@ fun JobApplicationsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        when (val state = uiState) {
-            is ApplicationsUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(padding))
-            is ApplicationsUiState.Empty   -> EmptyState(
-                message = "لا توجد طلبات لهذه الوظيفة بعد",
-                modifier = Modifier.padding(padding).fillMaxSize()
-            )
-            is ApplicationsUiState.Error   -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.loadApplications(jobId) },
-                modifier = Modifier.padding(padding)
-            )
-            is ApplicationsUiState.Success -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .padding(padding)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    item { Spacer(Modifier.height(8.dp)) }
-                    items(state.applications, key = { it.id }) { app ->
-                        ApplicationCard(
-                            application = app,
-                            isActionLoading = actionState is ApplicationActionState.Loading,
-                            onOffer  = { viewModel.offerApplication(app.id) },
-                            onReject = { viewModel.rejectApplication(app.id) },
-                            onManageAssignment = {
-                                val assignId = app.assignmentId
-                                if (assignId != null) onManageAssignment(assignId, app.workerPhone ?: "", app.assignmentStatus ?: "")
-                            }
-                        )
+        Refreshable(
+            isRefreshing = false,
+            onRefresh = { viewModel.loadApplications(jobId) },
+            modifier = Modifier.padding(padding)
+        ) {
+            when (val state = uiState) {
+                is ApplicationsUiState.Loading -> PullableState { LoadingIndicator() }
+                is ApplicationsUiState.Empty   -> PullableState { EmptyState(
+                    message = "لا توجد طلبات لهذه الوظيفة بعد",
+                    modifier = Modifier.fillMaxSize()
+                ) }
+                is ApplicationsUiState.Error   -> PullableState { ErrorMessage(
+                    message = state.message,
+                    onRetry = { viewModel.loadApplications(jobId) }
+                ) }
+                is ApplicationsUiState.Success -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        item { Spacer(Modifier.height(8.dp)) }
+                        items(state.applications, key = { it.id }) { app ->
+                            ApplicationCard(
+                                application = app,
+                                isActionLoading = actionState is ApplicationActionState.Loading,
+                                onOffer  = { viewModel.offerApplication(app.id) },
+                                onReject = { viewModel.rejectApplication(app.id) },
+                                onManageAssignment = {
+                                    val assignId = app.assignmentId
+                                    if (assignId != null) onManageAssignment(assignId, app.workerPhone ?: "", app.assignmentStatus ?: "")
+                                }
+                            )
+                        }
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
                 }
             }
         }

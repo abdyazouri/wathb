@@ -60,6 +60,8 @@ import com.yawmiyati.app.viewmodels.JobsViewModel
 import com.yawmiyati.app.viewmodels.PublishUiState
 import com.yawmiyati.app.ui.utils.formatArabicDate
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -162,39 +164,44 @@ fun BusinessHomeScreen(
                 onRefresh = { jobsViewModel.refresh() },
                 modifier = Modifier.padding(padding)
             ) {
-                EmptyState(
+                PullableState { EmptyState(
                     message = "لا توجد وظائف منشورة بعد.\nاضغط + لنشر وظيفتك الأولى.",
                     modifier = Modifier.fillMaxSize()
-                )
+                ) }
             }
-            is JobsUiState.Error -> {
-                if (state.message.contains("التحقق") || state.message.contains("مصرح") || state.isAuth) {
-                    // Unverified business — show informational message
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .padding(24.dp),
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "حسابك في انتظار التحقق",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            "يتم التحقق من الحسابات التجارية من قِبَل فريق وَثْب قبل السماح بنشر الوظائف. سنُخطرك عند الموافقة.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            is JobsUiState.Error -> Refreshable(
+                isRefreshing = false,
+                // e.g. pull after the admin approved the business
+                onRefresh = { jobsViewModel.refresh() },
+                modifier = Modifier.padding(padding)
+            ) {
+                PullableState {
+                    if (state.message.contains("التحقق") || state.message.contains("مصرح") || state.isAuth) {
+                        // Unverified business — show informational message
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(24.dp),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                "حسابك في انتظار التحقق",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "يتم التحقق من الحسابات التجارية من قِبَل فريق وَثْب قبل السماح بنشر الوظائف. سنُخطرك عند الموافقة.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        ErrorMessage(
+                            message = state.message,
+                            onRetry = { jobsViewModel.loadJobs() }
                         )
                     }
-                } else {
-                    ErrorMessage(
-                        message = state.message,
-                        onRetry = { jobsViewModel.loadJobs() },
-                        modifier = Modifier.padding(padding)
-                    )
                 }
             }
             is JobsUiState.Success -> {

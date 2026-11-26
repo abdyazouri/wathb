@@ -53,6 +53,8 @@ import com.yawmiyati.app.ui.utils.formatArabicDate
 import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 import java.time.LocalDate
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -100,13 +102,18 @@ fun WageObligationsScreen(
                 onRefresh = { viewModel.loadObligations() },
                 modifier = Modifier.padding(padding)
             ) {
-                EmptyState(message = "لا توجد التزامات مالية حالياً", modifier = Modifier.fillMaxSize())
+                PullableState { EmptyState(message = "لا توجد التزامات مالية حالياً", modifier = Modifier.fillMaxSize()) }
             }
-            is WagesUiState.Error   -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.loadObligations() },
+            is WagesUiState.Error   -> Refreshable(
+                isRefreshing = false,
+                onRefresh = { viewModel.loadObligations() },
                 modifier = Modifier.padding(padding)
-            )
+            ) {
+                PullableState { ErrorMessage(
+                    message = state.message,
+                    onRetry = { viewModel.loadObligations() }
+                ) }
+            }
             is WagesUiState.Success -> PullToRefreshBox(
                 isRefreshing = false,
                 onRefresh = { viewModel.loadObligations() },

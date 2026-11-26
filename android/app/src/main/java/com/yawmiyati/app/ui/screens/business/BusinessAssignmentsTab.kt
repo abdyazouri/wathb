@@ -39,6 +39,8 @@ import com.yawmiyati.app.viewmodels.AssignmentActionState
 import com.yawmiyati.app.viewmodels.AssignmentsUiState
 import com.yawmiyati.app.viewmodels.AssignmentsViewModel
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,35 +67,40 @@ fun BusinessAssignmentsTab(
     }
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
-        when (val state = uiState) {
-            is AssignmentsUiState.Loading -> LoadingIndicator(modifier = Modifier.fillMaxSize().padding(padding))
-            is AssignmentsUiState.Empty   -> EmptyState(
-                message = "لا توجد مهام نشطة حالياً",
-                modifier = Modifier.fillMaxSize().padding(padding)
-            )
-            is AssignmentsUiState.Error   -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.loadAssignments() },
-                modifier = Modifier.fillMaxSize().padding(padding)
-            )
-            is AssignmentsUiState.Success -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    item { Spacer(Modifier.height(8.dp)) }
-                    items(state.assignments, key = { it.id }) { assignment ->
-                        BusinessAssignmentCard(
-                            assignment = assignment,
-                            isActionLoading = actionState is AssignmentActionState.Loading,
-                            onComplete = { viewModel.businessComplete(assignment.id) },
-                            onManage = { onManageAssignment(assignment.id, assignment.workerPhone, assignment.status) }
-                        )
+        Refreshable(
+            isRefreshing = false,
+            onRefresh = { viewModel.loadAssignments() },
+            modifier = Modifier.padding(padding)
+        ) {
+            when (val state = uiState) {
+                is AssignmentsUiState.Loading -> PullableState { LoadingIndicator(modifier = Modifier.fillMaxSize()) }
+                is AssignmentsUiState.Empty   -> PullableState { EmptyState(
+                    message = "لا توجد مهام نشطة حالياً",
+                    modifier = Modifier.fillMaxSize()
+                ) }
+                is AssignmentsUiState.Error   -> PullableState { ErrorMessage(
+                    message = state.message,
+                    onRetry = { viewModel.loadAssignments() },
+                    modifier = Modifier.fillMaxSize()
+                ) }
+                is AssignmentsUiState.Success -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        item { Spacer(Modifier.height(8.dp)) }
+                        items(state.assignments, key = { it.id }) { assignment ->
+                            BusinessAssignmentCard(
+                                assignment = assignment,
+                                isActionLoading = actionState is AssignmentActionState.Loading,
+                                onComplete = { viewModel.businessComplete(assignment.id) },
+                                onManage = { onManageAssignment(assignment.id, assignment.workerPhone, assignment.status) }
+                            )
+                        }
+                        item { Spacer(Modifier.height(16.dp)) }
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
                 }
             }
         }

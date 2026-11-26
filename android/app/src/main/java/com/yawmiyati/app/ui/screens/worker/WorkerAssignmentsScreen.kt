@@ -58,6 +58,7 @@ import com.yawmiyati.app.viewmodels.splitMyWork
 import com.yawmiyati.app.viewmodels.nowInGaza
 import java.time.LocalDateTime
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import com.yawmiyati.app.ui.components.PullableState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,7 +156,7 @@ fun WorkerAssignmentsScreen(
                     modifier = Modifier.padding(padding).fillMaxSize()
                 ) {
                 if (tasks.isEmpty()) {
-                    EmptyState(message = NO_TASKS_YET, modifier = Modifier.fillMaxSize())
+                    PullableState { EmptyState(message = NO_TASKS_YET, modifier = Modifier.fillMaxSize()) }
                 } else LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()

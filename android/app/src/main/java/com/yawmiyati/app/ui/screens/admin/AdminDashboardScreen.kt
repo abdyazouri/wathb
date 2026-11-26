@@ -31,6 +31,8 @@ import com.yawmiyati.app.ui.components.ErrorMessage
 import com.yawmiyati.app.ui.components.LoadingIndicator
 import com.yawmiyati.app.viewmodels.AdminDashboardViewModel
 import com.yawmiyati.app.viewmodels.DashboardUiState
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,18 +44,23 @@ fun AdminDashboardScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("لوحة التحكم") }) }
     ) { padding ->
-        when (val state = uiState) {
-            is DashboardUiState.Loading -> LoadingIndicator()
-            is DashboardUiState.Error   -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.load() },
-                modifier = Modifier.padding(padding)
-            )
-            is DashboardUiState.Success -> DashboardContent(
-                summary = state.summary,
-                onRefresh = { viewModel.load() },
-                modifier = Modifier.padding(padding)
-            )
+        Refreshable(
+            isRefreshing = false,
+            onRefresh = { viewModel.load() },
+            modifier = Modifier.padding(padding)
+        ) {
+            when (val state = uiState) {
+                is DashboardUiState.Loading -> PullableState { LoadingIndicator() }
+                is DashboardUiState.Error   -> PullableState { ErrorMessage(
+                    message = state.message,
+                    onRetry = { viewModel.load() }
+                ) }
+                is DashboardUiState.Success -> DashboardContent(
+                    summary = state.summary,
+                    onRefresh = { viewModel.load() },
+                    modifier = Modifier
+                )
+            }
         }
     }
 }

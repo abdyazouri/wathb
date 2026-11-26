@@ -57,6 +57,8 @@ import com.yawmiyati.app.ui.utils.formatArabicWage
 import com.yawmiyati.app.viewmodels.JobsUiState
 import com.yawmiyati.app.viewmodels.JobsViewModel
 import com.yawmiyati.app.viewmodels.NotificationsViewModel
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,17 +111,28 @@ fun WorkerHomeScreen(
                 onRefresh = { jobsViewModel.refresh() },
                 modifier = Modifier.padding(padding)
             ) {
-                EmptyState(
+                PullableState { EmptyState(
                     message = "لا توجد وظائف متاحة حالياً",
                     modifier = Modifier.fillMaxSize()
-                )
+                ) }
             }
 
-            is JobsUiState.Error -> ErrorMessage(
-                message = state.message,
-                onRetry = { jobsViewModel.loadJobs() },
+            is JobsUiState.Error   -> Refreshable(
+
+                isRefreshing = false,
+
+                onRefresh = { jobsViewModel.refresh() },
+
                 modifier = Modifier.padding(padding)
-            )
+
+            ) {
+
+                PullableState { ErrorMessage(
+                    message = state.message,
+                    onRetry = { jobsViewModel.loadJobs() }
+                ) }
+
+            }
 
             is JobsUiState.Success -> {
                 val listState = rememberLazyListState()

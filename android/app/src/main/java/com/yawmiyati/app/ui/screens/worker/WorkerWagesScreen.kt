@@ -53,6 +53,8 @@ import com.yawmiyati.app.viewmodels.WageActionState
 import com.yawmiyati.app.viewmodels.WagesUiState
 import com.yawmiyati.app.viewmodels.WorkerWagesViewModel
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -101,13 +103,18 @@ fun WorkerWagesScreen(
                 onRefresh = { viewModel.loadObligations() },
                 modifier = Modifier.padding(padding)
             ) {
-                EmptyState(message = "لا توجد التزامات أجور حالياً", modifier = Modifier.fillMaxSize())
+                PullableState { EmptyState(message = "لا توجد التزامات أجور حالياً", modifier = Modifier.fillMaxSize()) }
             }
-            is WagesUiState.Error   -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.loadObligations() },
+            is WagesUiState.Error   -> Refreshable(
+                isRefreshing = false,
+                onRefresh = { viewModel.loadObligations() },
                 modifier = Modifier.padding(padding)
-            )
+            ) {
+                PullableState { ErrorMessage(
+                    message = state.message,
+                    onRetry = { viewModel.loadObligations() }
+                ) }
+            }
             is WagesUiState.Success -> PullToRefreshBox(
                 isRefreshing = false,
                 onRefresh = { viewModel.loadObligations() },

@@ -53,6 +53,7 @@ import com.yawmiyati.app.ui.utils.formatArabicDate
 import com.yawmiyati.app.viewmodels.canWorkerCancel
 import com.yawmiyati.app.viewmodels.hasStarted
 import com.yawmiyati.app.viewmodels.nowInGaza
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -154,183 +155,188 @@ fun WorkerAssignmentDetailScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Refreshable(
+            isRefreshing = false,
+            onRefresh = { viewModel.refresh(assignmentId) },
+            modifier = Modifier.padding(padding)
         ) {
-            // Business contact card
-            if (businessPhone.isNotBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Business contact card
+                if (businessPhone.isNotBlank()) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "صاحب العمل",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(businessPhone, style = MaterialTheme.typography.titleMedium)
+                            val localPhone = if (businessPhone.startsWith("+970"))
+                                "0" + businessPhone.removePrefix("+970")
+                            else businessPhone
+                            val waPhone = businessPhone.replace("+", "")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(
+                                    onClick = {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_DIAL, Uri.parse("tel:$localPhone"))
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("اتصال") }
+                                OutlinedButton(
+                                    onClick = {
+                                        context.startActivity(
+                                            Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$waPhone"))
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("واتساب") }
+                            }
+                        }
+                    }
+                }
+    
+                // Status / wage confirmation card
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            "صاحب العمل",
+                            "حالة المهمة",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(businessPhone, style = MaterialTheme.typography.titleMedium)
-                        val localPhone = if (businessPhone.startsWith("+970"))
-                            "0" + businessPhone.removePrefix("+970")
-                        else businessPhone
-                        val waPhone = businessPhone.replace("+", "")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = {
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_DIAL, Uri.parse("tel:$localPhone"))
-                                    )
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) { Text("اتصال") }
-                            OutlinedButton(
-                                onClick = {
-                                    context.startActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$waPhone"))
-                                    )
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) { Text("واتساب") }
-                        }
-                    }
-                }
-            }
-
-            // Status / wage confirmation card
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        "حالة المهمة",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    when (status) {
-                        "OFFERED" -> {
-                            Text("عرض مهمة — بانتظار قرارك", style = MaterialTheme.typography.bodyLarge)
-                        }
-                        "ACCEPTED", "ACTIVE" -> {
-                            val current = assignment
-                            if (current != null && !current.hasStarted(now)) {
-                                Text(
-                                    "مقبولة — تبدأ ${formatArabicDate(current.jobWorkDate.orEmpty())} " +
-                                        "الساعة ${formatArabicTime(current.jobStartTime.orEmpty())}",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.tertiary
-                                )
-                            } else {
-                                WorkerWorkSection(
-                                    workerPhone = current?.workerPhone ?: workerPhone,
-                                    today = now.toLocalDate().toString(),
-                                    attendanceState = attendanceState,
-                                    completionState = completionState,
-                                    isLoading = isLoading,
-                                    onCheckIn = { viewModel.submitAttendance(assignmentId, now.toLocalDate().toString(), "") },
-                                    onConfirmAttendance = { viewModel.confirmAttendance(assignmentId, it) },
-                                    onDisputeAttendance = { viewModel.disputeAttendance(assignmentId, it) },
-                                    onFinish = { hours, notes -> viewModel.submitCompletion(assignmentId, hours, notes) },
-                                    onConfirmCompletion = { viewModel.confirmCompletion(assignmentId) },
-                                    onDisputeCompletion = { viewModel.disputeCompletion(assignmentId) },
-                                )
+                        when (status) {
+                            "OFFERED" -> {
+                                Text("عرض مهمة — بانتظار قرارك", style = MaterialTheme.typography.bodyLarge)
                             }
-                        }
-                        "COMPLETED" -> {
-                            val wage = wages
-                            if (wage != null && wage.status == "AWAITING_ACK") {
-                                Text("تأكيد استلام الأجر", style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    wage.amountDisplay.toArabicAmountDisplay(),
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                val methodLabel = when (wage.declarations.firstOrNull()?.paymentMethod) {
-                                    "JAWWAL_PAY"       -> "جوال باي"
-                                    "PALPAY"           -> "بال باي"
-                                    "BANK_OF_PALESTINE" -> "بنك فلسطين"
-                                    else               -> ""
-                                }
-                                if (methodLabel.isNotBlank()) {
+                            "ACCEPTED", "ACTIVE" -> {
+                                val current = assignment
+                                if (current != null && !current.hasStarted(now)) {
                                     Text(
-                                        methodLabel,
-                                        style = MaterialTheme.typography.bodyMedium,
+                                        "مقبولة — تبدأ ${formatArabicDate(current.jobWorkDate.orEmpty())} " +
+                                            "الساعة ${formatArabicTime(current.jobStartTime.orEmpty())}",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                } else {
+                                    WorkerWorkSection(
+                                        workerPhone = current?.workerPhone ?: workerPhone,
+                                        today = now.toLocalDate().toString(),
+                                        attendanceState = attendanceState,
+                                        completionState = completionState,
+                                        isLoading = isLoading,
+                                        onCheckIn = { viewModel.submitAttendance(assignmentId, now.toLocalDate().toString(), "") },
+                                        onConfirmAttendance = { viewModel.confirmAttendance(assignmentId, it) },
+                                        onDisputeAttendance = { viewModel.disputeAttendance(assignmentId, it) },
+                                        onFinish = { hours, notes -> viewModel.submitCompletion(assignmentId, hours, notes) },
+                                        onConfirmCompletion = { viewModel.confirmCompletion(assignmentId) },
+                                        onDisputeCompletion = { viewModel.disputeCompletion(assignmentId) },
+                                    )
+                                }
+                            }
+                            "COMPLETED" -> {
+                                val wage = wages
+                                if (wage != null && wage.status == "AWAITING_ACK") {
+                                    Text("تأكيد استلام الأجر", style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        wage.amountDisplay.toArabicAmountDisplay(),
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    val methodLabel = when (wage.declarations.firstOrNull()?.paymentMethod) {
+                                        "JAWWAL_PAY"       -> "جوال باي"
+                                        "PALPAY"           -> "بال باي"
+                                        "BANK_OF_PALESTINE" -> "بنك فلسطين"
+                                        else               -> ""
+                                    }
+                                    if (methodLabel.isNotBlank()) {
+                                        Text(
+                                            methodLabel,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { acknowledge(wage.id) },
+                                            enabled = !isLoading,
+                                            modifier = Modifier.weight(1f)
+                                        ) { Text("تأكيد الاستلام") }
+                                        OutlinedButton(
+                                            onClick = { showDisputeDialog = true },
+                                            enabled = !isLoading,
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = MaterialTheme.colorScheme.error
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        ) { Text("اعتراض") }
+                                    }
+                                } else if (wage != null && wage.status in listOf("VERIFIED_PAID", "DECLARED")) {
+                                    Text(
+                                        "✓ تم دفع أجرك",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                } else if (wage != null) {
+                                    Text(
+                                        "الأجر: ${StatusLabels.wageForWorker(wage.status)}",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                } else {
+                                    Text(
+                                        "جاري تحميل بيانات الأجر...",
+                                        style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Button(
-                                        onClick = { acknowledge(wage.id) },
-                                        enabled = !isLoading,
-                                        modifier = Modifier.weight(1f)
-                                    ) { Text("تأكيد الاستلام") }
-                                    OutlinedButton(
-                                        onClick = { showDisputeDialog = true },
-                                        enabled = !isLoading,
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = MaterialTheme.colorScheme.error
-                                        ),
-                                        modifier = Modifier.weight(1f)
-                                    ) { Text("اعتراض") }
-                                }
-                            } else if (wage != null && wage.status in listOf("VERIFIED_PAID", "DECLARED")) {
+                            }
+                            "CANCELLED" -> {
                                 Text(
-                                    "✓ تم دفع أجرك",
+                                    "ملغاة",
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.tertiary
+                                    color = MaterialTheme.colorScheme.error
                                 )
-                            } else if (wage != null) {
+                            }
+                            "DECLINED" -> {
                                 Text(
-                                    "الأجر: ${StatusLabels.wageForWorker(wage.status)}",
+                                    "مرفوضة",
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            } else {
+                            }
+                            else -> {
                                 Text(
-                                    "جاري تحميل بيانات الأجر...",
+                                    StatusLabels.assignment(status),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
-                        "CANCELLED" -> {
-                            Text(
-                                "ملغاة",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        "DECLINED" -> {
-                            Text(
-                                "مرفوضة",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        else -> {
-                            Text(
-                                StatusLabels.assignment(status),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                 }
+    
+                // Cancel: accepted, and only before the work day (the server refuses after).
+                if (assignment?.canWorkerCancel(now.toLocalDate()) ?: (status == "ACCEPTED")) {
+                    OutlinedButton(
+                        onClick = { showCancelDialog = true },
+                        enabled = !isLoading,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                    ) { Text("إلغاء المهمة") }
+                }
+    
+                Spacer(Modifier.height(8.dp))
             }
-
-            // Cancel: accepted, and only before the work day (the server refuses after).
-            if (assignment?.canWorkerCancel(now.toLocalDate()) ?: (status == "ACCEPTED")) {
-                OutlinedButton(
-                    onClick = { showCancelDialog = true },
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    ),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
-                ) { Text("إلغاء المهمة") }
-            }
-
-            Spacer(Modifier.height(8.dp))
         }
     }
 }

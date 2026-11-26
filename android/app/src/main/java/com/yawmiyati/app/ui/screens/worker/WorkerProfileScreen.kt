@@ -50,6 +50,8 @@ import com.yawmiyati.app.viewmodels.WorkerProfileSaveState
 import com.yawmiyati.app.viewmodels.WorkerProfileUiState
 import com.yawmiyati.app.viewmodels.WorkerProfileViewModel
 import com.yawmiyati.app.ui.components.BiometricLoginSwitch
+import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.components.Refreshable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,121 +101,125 @@ fun WorkerProfileScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        when (val state = uiState) {
-            is WorkerProfileUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(padding))
-            is WorkerProfileUiState.Error   -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.load() },
-                modifier = Modifier.padding(padding)
-            )
-            is WorkerProfileUiState.Success -> {
-                val profile = state.profile
-                var fullName       by remember(profile) { mutableStateOf(profile.fullName) }
-                var locationCity   by remember(profile) { mutableStateOf(profile.locationCity) }
-                var locationRegion by remember(profile) { mutableStateOf(profile.locationRegion) }
-                var isAvailable    by remember(profile) { mutableStateOf(profile.isAvailable) }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 16.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Spacer(Modifier.height(4.dp))
-
-                    // Read-only info
-                    Text(
-                        text = "الهاتف: ${profile.phone}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (profile.isVerified) {
+        Refreshable(
+            isRefreshing = false,
+            onRefresh = { viewModel.load() },
+            modifier = Modifier.padding(padding)
+        ) {
+            when (val state = uiState) {
+                is WorkerProfileUiState.Loading -> PullableState { LoadingIndicator() }
+                is WorkerProfileUiState.Error   -> PullableState { ErrorMessage(
+                    message = state.message,
+                    onRetry = { viewModel.load() }
+                ) }
+                is WorkerProfileUiState.Success -> {
+                    val profile = state.profile
+                    var fullName       by remember(profile) { mutableStateOf(profile.fullName) }
+                    var locationCity   by remember(profile) { mutableStateOf(profile.locationCity) }
+                    var locationRegion by remember(profile) { mutableStateOf(profile.locationRegion) }
+                    var isAvailable    by remember(profile) { mutableStateOf(profile.isAvailable) }
+    
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Spacer(Modifier.height(4.dp))
+    
+                        // Read-only info
                         Text(
-                            text = "موثّق ✓",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
+                            text = "الهاتف: ${profile.phone}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-
-                    Spacer(Modifier.height(4.dp))
-
-                    OutlinedTextField(
-                        value = fullName,
-                        onValueChange = { fullName = it },
-                        label = { Text("الاسم الكامل") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = locationCity,
-                        onValueChange = { locationCity = it },
-                        label = { Text("المدينة") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    OutlinedTextField(
-                        value = locationRegion,
-                        onValueChange = { locationRegion = it },
-                        label = { Text("المنطقة / الحي") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("متاح للعمل", style = MaterialTheme.typography.bodyLarge)
-                        Switch(checked = isAvailable, onCheckedChange = { isAvailable = it })
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    Button(
-                        onClick = { viewModel.save(fullName, locationCity, locationRegion, isAvailable) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = saveState !is WorkerProfileSaveState.Saving,
-                    ) {
-                        Text(if (saveState is WorkerProfileSaveState.Saving) "جارٍ الحفظ..." else "حفظ")
-                    }
-
-                    if (onLogout != null) {
+                        if (profile.isVerified) {
+                            Text(
+                                text = "موثّق ✓",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+    
+                        Spacer(Modifier.height(4.dp))
+    
+                        OutlinedTextField(
+                            value = fullName,
+                            onValueChange = { fullName = it },
+                            label = { Text("الاسم الكامل") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        OutlinedTextField(
+                            value = locationCity,
+                            onValueChange = { locationCity = it },
+                            label = { Text("المدينة") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        OutlinedTextField(
+                            value = locationRegion,
+                            onValueChange = { locationRegion = it },
+                            label = { Text("المنطقة / الحي") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
+    
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("متاح للعمل", style = MaterialTheme.typography.bodyLarge)
+                            Switch(checked = isAvailable, onCheckedChange = { isAvailable = it })
+                        }
+    
+                        Spacer(Modifier.height(8.dp))
+    
+                        Button(
+                            onClick = { viewModel.save(fullName, locationCity, locationRegion, isAvailable) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = saveState !is WorkerProfileSaveState.Saving,
+                        ) {
+                            Text(if (saveState is WorkerProfileSaveState.Saving) "جارٍ الحفظ..." else "حفظ")
+                        }
+    
+                        if (onLogout != null) {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = onLogout,
+                                modifier = Modifier.fillMaxWidth(),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                )
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ExitToApp,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text("تسجيل الخروج")
+                            }
+                        }
+    
+                        Spacer(Modifier.height(8.dp))
+                        BiometricLoginSwitch(authViewModel)
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
-                            onClick = onLogout,
+                            onClick = { showDeleteDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ExitToApp,
-                                contentDescription = null,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Text("تسجيل الخروج")
+                            Text("حذف حسابي")
                         }
+    
+                        Spacer(Modifier.height(16.dp))
                     }
-
-                    Spacer(Modifier.height(8.dp))
-                    BiometricLoginSwitch(authViewModel)
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("حذف حسابي")
-                    }
-
-                    Spacer(Modifier.height(16.dp))
                 }
             }
         }
