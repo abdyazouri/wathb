@@ -3,6 +3,7 @@ package com.yawmiyati.app.data.auth
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.yawmiyati.app.data.api.ApiClient
+import com.yawmiyati.app.data.api.DeleteAccountRequest
 import com.yawmiyati.app.data.api.LoginRequest
 import com.yawmiyati.app.data.api.RefreshRequest
 import com.yawmiyati.app.data.api.RegisterBusinessRequest
@@ -80,6 +81,22 @@ class AuthRepository(private val tokenManager: TokenManager) {
                 tokenManager.saveTokens(body.access, body.refresh)
                 tokenManager.saveRole(body.user.role)
                 AuthResult.Success(body.user)
+            } else {
+                AuthResult.Error(parseErrorMessage(response.errorBody()?.string()))
+            }
+        } catch (e: Exception) {
+            AuthResult.Error(networkMessage(e))
+        }
+    }
+
+    /** POST /auth/delete-account/ — returns Success(Unit) on 204 (tokens already cleared),
+     *  or Error with the server's Arabic `detail` on 403 (wrong password) / 409 (blockers). */
+    suspend fun deleteAccount(password: String): AuthResult<Unit> {
+        return try {
+            val response = api.deleteAccount(DeleteAccountRequest(password))
+            if (response.isSuccessful) {
+                tokenManager.clear()
+                AuthResult.Success(Unit)
             } else {
                 AuthResult.Error(parseErrorMessage(response.errorBody()?.string()))
             }

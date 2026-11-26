@@ -24,4 +24,7 @@ interface AuthApi {
 
     @GET("auth/me/")
     suspend fun me(): Response<UserResponse>
+
+    @POST("auth/delete-account/")
+    suspend fun deleteAccount(@Body request: DeleteAccountRequest): Response<Unit>
 }

@@ -13,8 +13,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -26,6 +28,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -39,9 +42,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yawmiyati.app.ui.components.ErrorMessage
 import com.yawmiyati.app.ui.components.LoadingIndicator
+import com.yawmiyati.app.viewmodels.AuthViewModel
 import com.yawmiyati.app.viewmodels.BusinessProfileSaveState
 import com.yawmiyati.app.viewmodels.BusinessProfileUiState
 import com.yawmiyati.app.viewmodels.BusinessProfileViewModel
+import com.yawmiyati.app.viewmodels.DeleteAccountState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,11 +54,21 @@ fun BusinessProfileScreen(
     onBack: () -> Unit,
     onLockApp: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null,
-    viewModel: BusinessProfileViewModel = viewModel()
+    viewModel: BusinessProfileViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val saveState by viewModel.saveState.collectAsState()
+    val deleteState by authViewModel.deleteState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(deleteState) {
+        if (deleteState is DeleteAccountState.Success) {
+            authViewModel.resetDeleteState()
+            onLogout?.invoke()
+        }
+    }
 
     LaunchedEffect(saveState) {
         when (saveState) {
@@ -221,9 +236,93 @@ fun BusinessProfileScreen(
                         }
                     }
 
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("حذف حسابي")
+                    }
+
                     Spacer(Modifier.height(16.dp))
                 }
             }
         }
     }
+
+    if (showDeleteDialog) {
+        DeleteAccountDialog(
+            isLoading = deleteState is DeleteAccountState.Loading,
+            errorMessage = (deleteState as? DeleteAccountState.Error)?.message,
+            onDismiss = {
+                authViewModel.resetDeleteState()
+                showDeleteDialog = false
+            },
+            onConfirm = { pwd -> authViewModel.deleteAccount(pwd) }
+        )
+    }
+}
+
+@Composable
+private fun DeleteAccountDialog(
+    isLoading: Boolean,
+    errorMessage: String?,
+    onDismiss: () -> Unit,
+    onConfirm: (password: String) -> Unit
+) {
+    var password by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        title = { Text("تأكيد حذف الحساب") },
+        text = {
+            androidx.compose.foundation.layout.Column(
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "سيُحذف حسابك وجميع بياناتك الشخصية نهائياً. تبقى سجلات الأجور والمهام " +
+                    "بدون اسم للأغراض المحاسبية. لا يمكن التراجع عن هذا الإجراء.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("كلمة المرور للتأكيد") },
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                )
+                if (errorMessage != null) {
+                    Text(
+                        errorMessage,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(password) },
+                enabled = !isLoading && password.isNotBlank(),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.padding(end = 8.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onError
+                    )
+                }
+                Text("احذف حسابي")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isLoading) { Text("إلغاء") }
+        }
+    )
 }

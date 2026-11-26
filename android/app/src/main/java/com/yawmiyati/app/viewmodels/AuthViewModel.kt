@@ -18,12 +18,22 @@ sealed class AuthUiState {
     object LoggedOut : AuthUiState()
 }
 
+sealed class DeleteAccountState {
+    object Idle : DeleteAccountState()
+    object Loading : DeleteAccountState()
+    object Success : DeleteAccountState()
+    data class Error(val message: String) : DeleteAccountState()
+}
+
 class AuthViewModel : ViewModel() {
     private val tokenManager = YawmiyatiApp.instance.tokenManager
     private val repository = AuthRepository(tokenManager)
 
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState
+
+    private val _deleteState = MutableStateFlow<DeleteAccountState>(DeleteAccountState.Idle)
+    val deleteState: StateFlow<DeleteAccountState> = _deleteState
 
     fun login(phone: String, password: String) {
         if (phone.isBlank() || password.isBlank()) {
@@ -97,6 +107,23 @@ class AuthViewModel : ViewModel() {
             repository.logout()
             _uiState.value = AuthUiState.LoggedOut
         }
+    }
+
+    fun deleteAccount(password: String) {
+        _deleteState.value = DeleteAccountState.Loading
+        viewModelScope.launch {
+            when (val result = repository.deleteAccount(password)) {
+                is AuthResult.Success -> {
+                    _uiState.value = AuthUiState.LoggedOut
+                    _deleteState.value = DeleteAccountState.Success
+                }
+                is AuthResult.Error -> _deleteState.value = DeleteAccountState.Error(result.message)
+            }
+        }
+    }
+
+    fun resetDeleteState() {
+        _deleteState.value = DeleteAccountState.Idle
     }
 
     fun resetState() {
