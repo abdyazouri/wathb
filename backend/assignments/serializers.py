@@ -40,7 +40,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
 
     def get_wage_obligation_id(self, obj):
         try:
-            return str(obj.wageobligation.pk)
+            return str(obj.wage_obligation.pk)
         except Exception:
             return None
 

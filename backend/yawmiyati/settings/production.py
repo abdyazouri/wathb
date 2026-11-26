@@ -3,6 +3,11 @@ from decouple import config, Csv
 from django.core.exceptions import ImproperlyConfigured
 
 DEBUG = False
+IS_PRODUCTION = True
+
+# The fake payment provider marks wages paid without moving money: never in production.
+if PAYMENT_PROVIDER == "fake":  # noqa: F405
+    raise ImproperlyConfigured("PAYMENT_PROVIDER=fake is not allowed in production.")
 
 ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", cast=Csv())
 

@@ -463,7 +463,7 @@ class BusinessTrackRecordTests(APITestCase):
 
 
 class JobCreateCurrencyAndPaymentMethodTests(APITestCase):
-    """Owner decisions: ILS only; payment methods JAWWAL_PAY / PALPAY / BANK_OF_PALESTINE only."""
+    """Owner decisions: ILS only; new jobs are paid with Jawwal Pay, set by the server."""
 
     def setUp(self):
         self.biz_user, self.biz_profile = make_business("+970599017001")
@@ -487,26 +487,15 @@ class JobCreateCurrencyAndPaymentMethodTests(APITestCase):
         body.update(overrides)
         return body
 
-    def test_each_allowed_payment_method_accepted(self):
-        for method in ("JAWWAL_PAY", "PALPAY", "BANK_OF_PALESTINE"):
-            response = self.client.post(reverse("job-list"), self._body(payment_method=method))
+    def test_server_sets_jawwal_pay_whatever_the_client_sends(self):
+        for method in ("JAWWAL_PAY", "PALPAY", "BANK_OF_PALESTINE", "CASH", None):
+            body = self._body() if method is None else self._body(payment_method=method)
+            if method is None:
+                del body["payment_method"]
+            response = self.client.post(reverse("job-list"), body)
             self.assertEqual(response.status_code, status.HTTP_201_CREATED, msg=f"method={method}")
-            self.assertEqual(response.data["payment_method"], method)
+            self.assertEqual(response.data["payment_method"], "JAWWAL_PAY")
             self.assertEqual(response.data["wage_currency"], "ILS")
-
-    def test_removed_payment_methods_rejected(self):
-        for method in ("CASH", "OTHER", "BANK_TRANSFER"):
-            response = self.client.post(reverse("job-list"), self._body(payment_method=method))
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"method={method}")
-            self.assertIn("payment_method", response.data["fields"])
-        self.assertFalse(JobListing.objects.filter(business=self.biz_profile).exists())
-
-    def test_payment_method_is_required(self):
-        body = self._body()
-        del body["payment_method"]
-        response = self.client.post(reverse("job-list"), body)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("payment_method", response.data["fields"])
 
     def test_non_ils_currency_rejected(self):
         for currency in ("USD", "EUR", "JOD"):
@@ -515,12 +504,12 @@ class JobCreateCurrencyAndPaymentMethodTests(APITestCase):
             self.assertIn("wage_currency", response.data["fields"])
         self.assertFalse(JobListing.objects.filter(business=self.biz_profile).exists())
 
-    def test_update_cannot_switch_to_cash_or_usd(self):
+    def test_update_cannot_switch_method_or_to_usd(self):
         job = make_job(self.biz_profile)
         response = self.client.patch(
-            reverse("job-detail", args=[job.pk]), {"payment_method": "CASH"}, format="json"
+            reverse("job-detail", args=[job.pk]), {"payment_method": "PALPAY"}, format="json"
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)  # ignored: the server sets it
         response = self.client.patch(
             reverse("job-detail", args=[job.pk]), {"wage_currency": "USD"}, format="json"
         )

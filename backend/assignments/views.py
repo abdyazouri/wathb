@@ -513,7 +513,8 @@ class CompletionDisputeView(APIView):
 
 
 class BusinessCompleteAssignmentView(APIView):
-    """One-tap: business confirms work done + auto-declares payment → worker acknowledges."""
+    """«تأكيد ودفع الأجر» / «تأكيد إتمام العمل»: the business confirms the work. The wage
+    becomes DUE and is paid on the «تحويل الأجر» screen (wages/<id>/payment/)."""
     permission_classes = [IsBusiness]
 
     @transaction.atomic
@@ -568,38 +569,7 @@ class BusinessCompleteAssignmentView(APIView):
         assignment.save(update_fields=["status"])
 
         _create_wage_obligation(assignment)
-
-        from wages.models import WageObligation, WageObligationStatus, PaymentDeclaration
-        obligation = WageObligation.objects.get(assignment=assignment)
-
-        if obligation.status in (WageObligationStatus.PENDING, WageObligationStatus.DUE):
-            snapshot = assignment.terms_snapshot
-            PaymentDeclaration.objects.create(
-                wage_obligation=obligation,
-                declared_by=request.user,
-                declared_amount=snapshot.get("wage_amount", obligation.amount),
-                currency=snapshot.get("wage_currency", obligation.currency),
-                payment_method=snapshot.get("payment_method", assignment.job.payment_method),
-                payment_date=assignment.job.work_date,
-            )
-            obligation.status = WageObligationStatus.AWAITING_ACK
-            obligation.save(update_fields=["status"])
-
-            _notify(
-                assignment.worker, "PAYMENT_DECLARED",
-                f"أجرك بانتظار إقرارك: {assignment.job.title}",
-                f"تم تأكيد إتمام العمل. أجرك {format_money(obligation.amount)} بانتظار إقرارك.",
-                "WageObligation", str(obligation.pk),
-            )
-
-            from audit.models import AuditEvent
-            AuditEvent.objects.create(
-                actor=request.user,
-                action="business_complete_and_declare",
-                model_name="Assignment",
-                object_id=str(assignment.pk),
-                details={"obligation_id": str(obligation.pk)},
-            )
+        # The wage is now DUE; the business pays it on the «تحويل الأجر» screen.
 
         return Response(AssignmentSerializer(assignment).data)
 

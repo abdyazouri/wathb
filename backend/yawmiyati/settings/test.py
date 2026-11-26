@@ -3,6 +3,9 @@ from .base import *  # noqa: F401, F403
 DEBUG = False
 ALLOWED_HOSTS = ["localhost", "testserver"]
 
+PAYMENT_PROVIDER = "fake"
+JAWWAL_PAY_AUTOMATIC = False  # payment tests switch it on explicitly
+
 # Disable throttling in tests — override DEFAULT_THROTTLE_RATES to very high values
 # (PhoneTokenObtainPairView uses explicit throttle_classes so we also override the cache key)
 REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []

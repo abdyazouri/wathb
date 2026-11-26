@@ -43,20 +43,19 @@ class PaymentDeclarationSerializer(serializers.ModelSerializer):
         fields = [
             "id", "wage_obligation", "declared_amount", "currency",
             "payment_date", "payment_method", "transaction_reference",
-            "declared_by_phone", "declared_at", "status", "review_notes",
+            "declared_by_phone", "declared_at", "status", "review_notes", "provider_confirmed",
         ]
-        read_only_fields = ["id", "declared_by_phone", "declared_at", "status", "review_notes"]
+        read_only_fields = ["id", "declared_by_phone", "declared_at", "status", "review_notes", "provider_confirmed"]
 
 
 class PaymentDeclarationCreateSerializer(serializers.ModelSerializer):
+    """Manual mode «حوّلت الأجر». The amount, currency and method are set by the server
+    (agreed amount, ILS, Jawwal Pay); anything the client sends for them is ignored."""
+    payment_date = serializers.DateField(required=False)
+
     class Meta:
         model = PaymentDeclaration
-        fields = ["declared_amount", "currency", "payment_date", "payment_method", "transaction_reference"]
-
-    def validate_declared_amount(self, value):
-        if value <= 0:
-            raise serializers.ValidationError("يجب أن يكون المبلغ المُعلَن أكبر من صفر.")
-        return value
+        fields = ["payment_date", "transaction_reference"]
 
 
 class PaymentEvidenceSerializer(serializers.ModelSerializer):

@@ -106,6 +106,8 @@ class BusinessProfile(models.Model):
     )
     verified_at = models.DateTimeField(null=True, blank=True)
     suspension_reason = models.TextField(blank=True)
+    # The business's Jawwal Pay wallet (E.164). Needed for automatic transfers.
+    jawwal_pay_wallet = models.CharField(max_length=20, blank=True)
 
     def __str__(self):
         return f"Business: {self.legal_name}"

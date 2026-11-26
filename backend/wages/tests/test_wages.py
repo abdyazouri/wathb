@@ -169,65 +169,20 @@ class PaymentDeclarationTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_invalid_payment_method_returns_400(self):
-        """payment_method must be one of JAWWAL_PAY / PALPAY / BANK_OF_PALESTINE."""
+    def test_amount_currency_and_method_come_from_the_server(self):
+        """Manual «حوّلت الأجر»: whatever the client sends, the declaration carries the agreed
+        amount from the terms, ILS and Jawwal Pay."""
         self.client.force_authenticate(user=self.biz_user)
-        body = self._decl_body()
-        body["payment_method"] = "BITCOIN"
-        response = self.client.post(
-            reverse("wage-declare-payment", args=[self.obligation.pk]),
-            body,
+        body = {"declared_amount": 1, "currency": "USD", "payment_method": "CASH",
+                "transaction_reference": "JP-123"}
+        response = self.client.post(reverse("wage-declare-payment", args=[self.obligation.pk]), body)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        declaration = PaymentDeclaration.objects.get(wage_obligation=self.obligation)
+        self.assertEqual(
+            (declaration.declared_amount, declaration.currency, declaration.payment_method,
+             declaration.transaction_reference, declaration.provider_confirmed),
+            (self.obligation.amount, "ILS", "JAWWAL_PAY", "JP-123", False),
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_removed_payment_methods_rejected(self):
-        """Owner decision: no cash. CASH, OTHER and the old BANK_TRANSFER are rejected."""
-        self.client.force_authenticate(user=self.biz_user)
-        for method in ("CASH", "OTHER", "BANK_TRANSFER"):
-            body = self._decl_body()
-            body["payment_method"] = method
-            response = self.client.post(
-                reverse("wage-declare-payment", args=[self.obligation.pk]),
-                body,
-            )
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"method={method}")
-            self.assertIn("payment_method", response.data["fields"])
-        self.obligation.refresh_from_db()
-        self.assertEqual(self.obligation.status, WageObligationStatus.PENDING)
-
-    def test_non_ils_currency_rejected(self):
-        self.client.force_authenticate(user=self.biz_user)
-        for currency in ("USD", "EUR", "JOD"):
-            body = self._decl_body()
-            body["currency"] = currency
-            response = self.client.post(
-                reverse("wage-declare-payment", args=[self.obligation.pk]),
-                body,
-            )
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"currency={currency}")
-            self.assertIn("currency", response.data["fields"])
-        self.obligation.refresh_from_db()
-        self.assertEqual(self.obligation.status, WageObligationStatus.PENDING)
-
-    def test_all_valid_payment_methods_accepted(self):
-        methods = ("JAWWAL_PAY", "PALPAY", "BANK_OF_PALESTINE")
-        for i, method in enumerate(methods):
-            # Re-create an obligation for each variant (tearDown not available here,
-            # so we just chain a new obligation on a new assignment).
-            _, assign = make_job_and_assignment(
-                self.biz_profile, self.worker,
-                wage_amount=5000 + i
-            )
-            obl = make_obligation(assign)
-            self.client.force_authenticate(user=self.biz_user)
-            body = {
-                "declared_amount": obl.amount,
-                "currency": "ILS",
-                "payment_date": str(__import__("datetime").date.today()),
-                "payment_method": method,
-            }
-            resp = self.client.post(reverse("wage-declare-payment", args=[obl.pk]), body)
-            self.assertEqual(resp.status_code, status.HTTP_201_CREATED, msg=f"method={method}")
 
 
 class PaymentAcknowledgmentTests(APITestCase):

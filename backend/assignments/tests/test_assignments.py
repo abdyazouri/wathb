@@ -512,39 +512,18 @@ class BusinessCompleteTests(APITestCase):
         self.client.post(reverse("business-complete-assignment", args=[self.assignment.pk]))
         self.assertTrue(WageObligation.objects.filter(assignment=self.assignment).exists())
 
-    def test_complete_sets_obligation_awaiting_ack(self):
+    def test_complete_leaves_the_wage_due_for_the_payment_screen(self):
+        """Confirming no longer declares a payment: the business pays on «تحويل الأجر»."""
+        from wages.models import PaymentDeclaration, WageObligationStatus
         self.job.work_date = datetime.date.today()
         self.job.save(update_fields=["work_date"])
         self.client.force_authenticate(user=self.biz_user)
-        self.client.post(reverse("business-complete-assignment", args=[self.assignment.pk]))
-        from wages.models import WageObligationStatus
+        response = self.client.post(reverse("business-complete-assignment", args=[self.assignment.pk]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         obligation = WageObligation.objects.get(assignment=self.assignment)
-        self.assertEqual(obligation.status, WageObligationStatus.AWAITING_ACK)
-
-    def test_complete_declares_with_jobs_payment_method(self):
-        from wages.models import PaymentDeclaration
-        self.job.work_date = datetime.date.today()
-        self.job.payment_method = "PALPAY"
-        self.job.save(update_fields=["work_date", "payment_method"])
-        self.assignment.terms_snapshot = self.job.material_terms_snapshot()
-        self.assignment.save(update_fields=["terms_snapshot"])
-        self.client.force_authenticate(user=self.biz_user)
-        self.client.post(reverse("business-complete-assignment", args=[self.assignment.pk]))
-        declaration = PaymentDeclaration.objects.get(wage_obligation__assignment=self.assignment)
-        self.assertEqual(declaration.payment_method, "PALPAY")
-        self.assertEqual(declaration.currency, "ILS")
-
-    def test_complete_notification_shows_shekels_not_agorot(self):
-        from notifications.models import Notification
-        self.job.work_date = datetime.date.today()
-        self.job.save(update_fields=["work_date"])
-        self.client.force_authenticate(user=self.biz_user)
-        self.client.post(reverse("business-complete-assignment", args=[self.assignment.pk]))
-        note = Notification.objects.get(recipient=self.worker, notification_type="PAYMENT_DECLARED")
-        amount = WageObligation.objects.get(assignment=self.assignment).amount
-        from yawmiyati.money import format_money
-        self.assertIn(format_money(amount), note.body)
-        self.assertNotIn("ILS", note.body)
+        self.assertEqual(obligation.status, WageObligationStatus.DUE)
+        self.assertEqual(response.data["wage_obligation_id"], str(obligation.pk))
+        self.assertFalse(PaymentDeclaration.objects.filter(wage_obligation=obligation).exists())
 
     def test_cannot_complete_before_work_date(self):
         self.job.work_date = datetime.date.today() + datetime.timedelta(days=1)

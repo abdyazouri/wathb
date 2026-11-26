@@ -14,6 +14,7 @@ from yawmiyati.money import format_money, to_arabic_indic
 from accounts.models import Role
 from accounts.permissions import IsWorker, IsBusiness, IsAdminRole
 from wages.models import (
+    OPEN_ATTEMPT_STATUSES, PaymentAttempt, PaymentMethod,
     WageObligation, WageObligationStatus,
     PaymentDeclaration, PaymentDeclarationStatus,
     PaymentEvidence,
@@ -30,6 +31,7 @@ class WageObligationListView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         _auto_confirm_all_pending()
+        auto_acknowledge_provider_payments()
         from notifications.views import _create_wage_reminders
         _create_wage_reminders(request.user)
         return super().list(request, *args, **kwargs)
@@ -82,16 +84,28 @@ class DeclarePaymentView(APIView):
                 {"detail": f"لا يمكن الإعلان عن الدفع لأجر حالته «{obligation.get_status_display()}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if PaymentAttempt.objects.select_for_update().filter(
+            wage_obligation=obligation, status__in=OPEN_ATTEMPT_STATUSES
+        ).exists():
+            return Response({"detail": "توجد عملية تحويل آلي جارية لهذا الأجر."}, status=status.HTTP_409_CONFLICT)
 
         serializer = PaymentDeclarationCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        # Manual mode «حوّلت الأجر»: the business transferred in its own Jawwal Pay app.
+        # The amount is the agreed wage; the worker's acknowledgement stays the proof.
         declaration = serializer.save(
             wage_obligation=obligation,
             declared_by=request.user,
+            declared_amount=obligation.amount,
+            currency=obligation.currency,
+            payment_method=PaymentMethod.JAWWAL_PAY,
+            payment_date=serializer.validated_data.get("payment_date") or timezone.localdate(),
         )
 
         obligation.status = WageObligationStatus.AWAITING_ACK
         obligation.save(update_fields=["status"])
+        _log_audit(request.user, "payment_declared", "PaymentDeclaration", str(declaration.pk),
+                   {"amount": declaration.declared_amount, "mode": "manual"})
 
         _notify_worker(
             obligation.assignment.worker,
@@ -488,6 +502,30 @@ class AdminPhoneResolveView(APIView):
             )
 
         return Response(WageObligationSerializer(obligation).data)
+
+
+def auto_acknowledge_provider_payments():
+    """A transfer the provider itself confirmed counts as received after 24 hours unless the
+    worker pressed «لم أستلم أجري». Manual declarations are never acknowledged this way."""
+    cutoff = timezone.now() - datetime.timedelta(hours=24)
+    due = PaymentDeclaration.objects.filter(
+        provider_confirmed=True,
+        status=PaymentDeclarationStatus.SUBMITTED,
+        declared_at__lte=cutoff,
+        wage_obligation__status=WageObligationStatus.AWAITING_ACK,
+    ).values_list("wage_obligation_id", "pk")
+    for obligation_id, declaration_id in list(due):
+        with transaction.atomic():
+            obligation = WageObligation.objects.select_for_update().get(pk=obligation_id)
+            declaration = PaymentDeclaration.objects.select_for_update().get(pk=declaration_id)
+            if obligation.status != WageObligationStatus.AWAITING_ACK or declaration.status != PaymentDeclarationStatus.SUBMITTED:
+                continue
+            declaration.status = PaymentDeclarationStatus.ACKNOWLEDGED
+            declaration.save(update_fields=["status"])
+            obligation.status = WageObligationStatus.VERIFIED_PAID
+            obligation.save(update_fields=["status"])
+            _log_audit(None, "payment_auto_acknowledged", "WageObligation", str(obligation.pk),
+                       {"declaration_id": str(declaration.pk)})
 
 
 def _auto_confirm_all_pending():

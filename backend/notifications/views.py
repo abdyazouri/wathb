@@ -25,6 +25,7 @@ def _create_wage_reminders(user):
         assignment__worker=user,
         status=WageObligationStatus.AWAITING_ACK,
         declarations__status=PaymentDeclarationStatus.SUBMITTED,
+        declarations__provider_confirmed=False,
     ).distinct().prefetch_related("declarations")
     for obl in obligations:
         declared_at = obl.declarations.filter(
@@ -120,7 +121,9 @@ class NotificationListView(generics.ListAPIView):
         return Notification.objects.filter(recipient=self.request.user)
 
     def list(self, request, *args, **kwargs):
+        from wages.views import auto_acknowledge_provider_payments
         _auto_confirm_all_pending()
+        auto_acknowledge_provider_payments()
         _create_wage_reminders(request.user)
         return super().list(request, *args, **kwargs)
 

@@ -163,9 +163,31 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
             "legal_name", "trade_name", "registration_number",
             "location_address", "location_city",
             "contact_name", "contact_phone",
-            "verification_status",
+            "verification_status", "jawwal_pay_wallet",
         ]
         read_only_fields = ["id", "phone", "email", "verification_status"]
+
+    def validate_jawwal_pay_wallet(self, value):
+        value = (value or "").strip()
+        if not value:
+            return ""  # unlink
+        from accounts.utils import normalize_phone
+        try:
+            return normalize_phone(value)
+        except ValueError as e:
+            raise serializers.ValidationError(f"رقم محفظة Jawwal Pay غير صالح: {e}")
+
+    def update(self, instance, validated_data):
+        old_wallet = instance.jawwal_pay_wallet
+        instance = super().update(instance, validated_data)
+        if instance.jawwal_pay_wallet != old_wallet:
+            from audit.models import AuditEvent
+            mask = lambda w: f"…{w[-4:]}" if w else ""  # noqa: E731
+            AuditEvent.objects.create(
+                actor=instance.user, action="business_wallet_changed", model_name="BusinessProfile",
+                object_id=str(instance.pk), details={"from": mask(old_wallet), "to": mask(instance.jawwal_pay_wallet)},
+            )
+        return instance
 
 
 class AdminBusinessProfileSerializer(serializers.ModelSerializer):

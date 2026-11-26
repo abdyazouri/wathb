@@ -91,7 +91,7 @@ class WorkerRequestTests(WageRequestTestBase):
 
 class ConfirmAndPayTests(WageRequestTestBase):
 
-    def test_confirm_leads_to_the_existing_declare_and_acknowledge_flow(self):
+    def test_confirm_makes_the_wage_due_with_the_agreed_amount(self):
         self.request_wage()
         # The business edits the job later: the wage still comes from the agreed terms.
         self.job.wage_amount = 1
@@ -105,14 +105,13 @@ class ConfirmAndPayTests(WageRequestTestBase):
         self.assignment.refresh_from_db()
         self.assertEqual(self.assignment.status, AssignmentStatus.COMPLETED)
         wage = WageObligation.objects.get(assignment=self.assignment)
-        self.assertEqual((wage.amount, wage.status), (9000, WageObligationStatus.AWAITING_ACK))
+        # Paid next on «تحويل الأجر» (work item 2), so nothing is declared yet.
+        self.assertEqual((wage.amount, wage.status), (9000, WageObligationStatus.DUE))
         self.assertEqual(wage.due_date, timezone.localdate())
-        declaration = PaymentDeclaration.objects.get(wage_obligation=wage)
-        self.assertEqual(declaration.declared_amount, 9000)
-        self.assertTrue(Notification.objects.filter(recipient=self.worker, notification_type="PAYMENT_DECLARED").exists())
+        self.assertEqual(r.data["wage_obligation_id"], str(wage.pk))
+        self.assertFalse(PaymentDeclaration.objects.filter(wage_obligation=wage).exists())
         actions = set(AuditEvent.objects.values_list("action", flat=True))
-        self.assertTrue({"completion_submitted", "completion_confirmed", "wage_created",
-                         "business_complete_and_declare"} <= actions)
+        self.assertTrue({"completion_submitted", "completion_confirmed", "wage_created"} <= actions)
 
     def test_only_that_jobs_business_can_confirm(self):
         self.request_wage()
@@ -128,7 +127,7 @@ class ConfirmAndPayTests(WageRequestTestBase):
     def test_business_can_still_complete_when_the_worker_forgot(self):
         r = self.confirm_and_pay()
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
-        self.assertEqual(WageObligation.objects.get(assignment=self.assignment).status, WageObligationStatus.AWAITING_ACK)
+        self.assertEqual(WageObligation.objects.get(assignment=self.assignment).status, WageObligationStatus.DUE)
 
 
 class NotDoneTests(WageRequestTestBase):

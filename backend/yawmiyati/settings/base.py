@@ -167,6 +167,17 @@ CORS_ALLOWED_ORIGINS = config(
 NATIONAL_ID_HMAC_KEY = config("NATIONAL_ID_HMAC_KEY", default="")
 
 # App update config — served by /api/v1/app/config/ (no auth).
+# ── Wage payments (Jawwal Pay) ─────────────────────────────────────────────────
+# Money always moves from the business's wallet straight to the worker's wallet;
+# Wathb never receives, holds or forwards funds.
+# Off (default): manual mode — the business transfers in its own Jawwal Pay app and
+# confirms in Wathb; the worker's acknowledgement is the proof.
+# On: the server initiates the transfer through PAYMENT_PROVIDER, and only if that
+# provider reports itself available (the Jawwal Pay adapter does not, until it exists).
+JAWWAL_PAY_AUTOMATIC = config("JAWWAL_PAY_AUTOMATIC", default=False, cast=bool)
+PAYMENT_PROVIDER = config("PAYMENT_PROVIDER", default="jawwal")
+IS_PRODUCTION = False
+
 APP_MIN_SUPPORTED_VERSION_CODE = config("APP_MIN_SUPPORTED_VERSION_CODE", default=1, cast=int)
 APP_LATEST_VERSION_CODE = config("APP_LATEST_VERSION_CODE", default=1, cast=int)
 APP_APK_DOWNLOAD_URL = config("APP_APK_DOWNLOAD_URL", default="")

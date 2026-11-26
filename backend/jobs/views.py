@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from accounts.models import Role
 from accounts.permissions import IsWorker, IsBusiness, IsVerifiedBusiness
-from jobs.models import JobListing, JobApplication, JobListingStatus, ApplicationStatus, JobCategory
+from jobs.models import PaymentMethod, JobListing, JobApplication, JobListingStatus, ApplicationStatus, JobCategory
 from jobs.serializers import (
     JobListingSerializer,
     JobListingCreateSerializer,
@@ -218,7 +218,7 @@ class JobCloneView(APIView):
             wage_amount=original.wage_amount,
             wage_currency=original.wage_currency,
             wage_basis=original.wage_basis,
-            payment_method=original.payment_method,
+            payment_method=PaymentMethod.JAWWAL_PAY,  # new jobs: Jawwal Pay only
             required_skills=original.required_skills,
             attendance_requirements=original.attendance_requirements,
             cancellation_policy=original.cancellation_policy,

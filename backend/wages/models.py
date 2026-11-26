@@ -67,6 +67,10 @@ class PaymentDeclaration(models.Model):
     payment_date = models.DateField()
     payment_method = models.CharField(max_length=30, choices=PaymentMethod.choices)
     transaction_reference = models.CharField(max_length=200, blank=True)
+    # True when the payment provider itself confirmed the transfer (automatic mode).
+    # Only these are acknowledged automatically after 24 hours; manual declarations
+    # keep the worker's acknowledgement as the proof.
+    provider_confirmed = models.BooleanField(default=False)
     declared_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -111,3 +115,49 @@ class PaymentEvidence(models.Model):
 
     def __str__(self):
         return f"Evidence: {self.original_filename} for {self.declaration}"
+
+
+class PaymentAttemptStatus(models.TextChoices):
+    INITIATED = "INITIATED", "بانتظار الرمز"
+    SUCCEEDED = "SUCCEEDED", "تم التحويل"
+    FAILED = "FAILED", "فشل"
+    UNKNOWN = "UNKNOWN", "قيد التحقق"
+
+
+OPEN_ATTEMPT_STATUSES = (PaymentAttemptStatus.INITIATED, PaymentAttemptStatus.UNKNOWN)
+
+
+class PaymentAttempt(models.Model):
+    """One automatic transfer attempt (automatic mode). The one-time code is never stored."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    wage_obligation = models.ForeignKey(WageObligation, on_delete=models.PROTECT, related_name="payment_attempts")
+    provider = models.CharField(max_length=30)
+    idempotency_key = models.CharField(max_length=100, unique=True)
+    amount = models.PositiveBigIntegerField(help_text="Integer agorot, from the agreed terms")
+    currency = models.CharField(max_length=3, choices=Currency.choices)
+    payer_wallet = models.CharField(max_length=20)
+    payee_wallet = models.CharField(max_length=20)
+    initiated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="payment_attempts")
+    status = models.CharField(max_length=20, choices=PaymentAttemptStatus.choices, default=PaymentAttemptStatus.INITIATED)
+    provider_reference = models.CharField(max_length=200, blank=True)
+    failure_code = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    code_sent_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            # At most one attempt in flight per wage …
+            models.UniqueConstraint(
+                fields=["wage_obligation"],
+                condition=models.Q(status__in=["INITIATED", "UNKNOWN"]),
+                name="one_open_payment_attempt_per_wage",
+            ),
+            # … and a wage is never transferred twice by the provider.
+            models.UniqueConstraint(
+                fields=["wage_obligation"],
+                condition=models.Q(status="SUCCEEDED"),
+                name="one_successful_payment_per_wage",
+            ),
+        ]
