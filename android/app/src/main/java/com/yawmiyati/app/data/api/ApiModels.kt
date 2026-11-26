@@ -394,6 +394,8 @@ data class DisputeResponse(
     val category: String,
     val assignment: String,
     @SerializedName("wage_obligation") val wageObligation: String? = null,
+    @SerializedName("wage_obligation_status") val wageObligationStatus: String? = null,
+    @SerializedName("disputed_declaration") val disputedDeclaration: String? = null,
     @SerializedName("raised_by_phone") val raisedByPhone: String,
     val description: String,
     val status: String,
@@ -404,8 +406,7 @@ data class DisputeResponse(
 )
 
 data class DisputeResolveRequest(
-    val action: String,
-    val notes: String,
+    @SerializedName("resolution_notes") val resolutionNotes: String,
 )
 
 // ── Notifications ─────────────────────────────────────────────────────────────

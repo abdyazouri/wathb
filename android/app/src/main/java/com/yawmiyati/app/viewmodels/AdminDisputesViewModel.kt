@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yawmiyati.app.data.admin.AdminRepository
 import com.yawmiyati.app.data.admin.AdminResult
+import com.yawmiyati.app.data.api.AdminVerifyDeclarationRequest
 import com.yawmiyati.app.data.api.ApiClient
 import com.yawmiyati.app.data.api.DisputeResponse
 import com.yawmiyati.app.data.api.DisputeResolveRequest
 import com.yawmiyati.app.data.api.WageObligationResponse
+import com.yawmiyati.app.data.wages.WageRepository
+import com.yawmiyati.app.data.wages.WageResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -19,6 +22,11 @@ sealed class DisputesUiState {
     data class Error(val message: String) : DisputesUiState()
 }
 
+/** A dispute on a wage the admin can still settle with verify/reject. */
+val DisputeResponse.canSettleWage: Boolean
+    get() = status in listOf("OPEN", "IN_REVIEW") &&
+        wageObligation != null && wageObligationStatus == "DISPUTED" && disputedDeclaration != null
+
 sealed class DisputeActionState {
     object Idle : DisputeActionState()
     object Loading : DisputeActionState()
@@ -28,6 +36,7 @@ sealed class DisputeActionState {
 
 class AdminDisputesViewModel : ViewModel() {
     private val adminRepository = AdminRepository()
+    private val wageRepository = WageRepository()
 
     private val _uiState = MutableStateFlow<DisputesUiState>(DisputesUiState.Loading)
     val uiState: StateFlow<DisputesUiState> = _uiState
@@ -64,11 +73,33 @@ class AdminDisputesViewModel : ViewModel() {
         }
     }
 
-    fun resolve(disputeId: String, action: String, notes: String) {
+    /**
+     * Settle a disputed wage: action "verify" (الدفع تم) or "reject" (الدفع لم يتم).
+     * The server resolves the dispute with the same note and notifies both parties.
+     */
+    fun settleWage(dispute: DisputeResponse, action: String, notes: String) {
+        val wageId = dispute.wageObligation ?: return
+        val declarationId = dispute.disputedDeclaration ?: return
+        viewModelScope.launch {
+            _actionState.value = DisputeActionState.Loading
+            val result = wageRepository.verifyDeclaration(
+                wageId, declarationId, AdminVerifyDeclarationRequest(action, notes.trim())
+            )
+            _actionState.value = when (result) {
+                is WageResult.Success -> {
+                    load()
+                    DisputeActionState.Success
+                }
+                is WageResult.Error -> DisputeActionState.Error(result.message)
+            }
+        }
+    }
+
+    fun resolve(disputeId: String, notes: String) {
         viewModelScope.launch {
             _actionState.value = DisputeActionState.Loading
             try {
-                val resp = ApiClient.adminApi.resolveDispute(disputeId, DisputeResolveRequest(action, notes))
+                val resp = ApiClient.adminApi.resolveDispute(disputeId, DisputeResolveRequest(notes.trim()))
                 if (resp.isSuccessful) {
                     _actionState.value = DisputeActionState.Success
                     load()

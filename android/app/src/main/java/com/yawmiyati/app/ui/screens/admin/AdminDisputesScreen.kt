@@ -55,6 +55,7 @@ import com.yawmiyati.app.ui.components.LoadingIndicator
 import com.yawmiyati.app.viewmodels.AdminDisputesViewModel
 import com.yawmiyati.app.viewmodels.DisputeActionState
 import com.yawmiyati.app.viewmodels.DisputesUiState
+import com.yawmiyati.app.viewmodels.canSettleWage
 import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,7 +109,10 @@ fun AdminDisputesScreen(
             action = action,
             isLoading = actionState is DisputeActionState.Loading,
             onDismiss = { resolveDialog = null },
-            onConfirm = { notes -> viewModel.resolve(dispute.id, action, notes) }
+            onConfirm = { notes ->
+                if (action == "resolve") viewModel.resolve(dispute.id, notes)
+                else viewModel.settleWage(dispute, action, notes)
+            }
         )
     }
 
@@ -178,8 +182,7 @@ fun AdminDisputesScreen(
                         DisputeCard(
                             dispute = dispute,
                             isActionLoading = actionState is DisputeActionState.Loading,
-                            onPaid = { resolveDialog = dispute to "paid" },
-                            onNotPaid = { resolveDialog = dispute to "not_paid" }
+                            onAction = { action -> resolveDialog = dispute to action }
                         )
                     }
                     item { Spacer(Modifier.height(16.dp)) }
@@ -289,8 +292,7 @@ private fun PhoneResolveDialog(
 private fun DisputeCard(
     dispute: DisputeResponse,
     isActionLoading: Boolean,
-    onPaid: () -> Unit,
-    onNotPaid: () -> Unit,
+    onAction: (action: String) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -324,22 +326,28 @@ private fun DisputeCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (dispute.status in listOf("OPEN", "IN_REVIEW")) {
+            if (dispute.canSettleWage) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
-                        onClick = onPaid,
+                        onClick = { onAction("verify") },
                         enabled = !isActionLoading,
                         modifier = Modifier.weight(1f)
-                    ) { Text("دُفع") }
+                    ) { Text("الدفع تم") }
                     OutlinedButton(
-                        onClick = onNotPaid,
+                        onClick = { onAction("reject") },
                         enabled = !isActionLoading,
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error
                         ),
                         modifier = Modifier.weight(1f)
-                    ) { Text("لم يُدفع") }
+                    ) { Text("الدفع لم يتم") }
                 }
+            } else if (dispute.status in listOf("OPEN", "IN_REVIEW")) {
+                OutlinedButton(
+                    onClick = { onAction("resolve") },
+                    enabled = !isActionLoading,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("حل النزاع") }
             }
         }
     }
@@ -354,7 +362,11 @@ private fun ResolveDialog(
     onConfirm: (String) -> Unit,
 ) {
     var notes by rememberSaveable { mutableStateOf("") }
-    val actionLabel = if (action == "paid") "دُفع" else "لم يُدفع"
+    val (actionLabel, consequence) = when (action) {
+        "verify" -> "الدفع تم" to "سيُسجَّل الأجر مدفوعًا ويُغلق النزاع."
+        "reject" -> "الدفع لم يتم" to "سيعود الأجر مستحقًا، وعلى صاحب العمل أن يدفع ويعلن الدفع من جديد."
+        else     -> "حل النزاع" to "سيُغلق النزاع بهذه الملاحظة."
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -362,6 +374,7 @@ private fun ResolveDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("المبلّغ: ${dispute.raisedByPhone}")
+                Text(consequence, style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
