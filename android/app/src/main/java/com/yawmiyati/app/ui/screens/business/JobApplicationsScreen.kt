@@ -42,6 +42,7 @@ import com.yawmiyati.app.ui.components.LoadingIndicator
 import com.yawmiyati.app.viewmodels.ApplicationActionState
 import com.yawmiyati.app.viewmodels.ApplicationsUiState
 import com.yawmiyati.app.viewmodels.JobApplicationsViewModel
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -236,13 +237,15 @@ private fun VerificationBadge(isVerified: Boolean) {
 
 @Composable
 private fun ApplicationStatusChip(status: String) {
-    val (label, color) = when (status) {
-        "PENDING"   -> "معلق"    to MaterialTheme.colorScheme.secondary
-        "OFFERED"   -> "عُرض عليه" to MaterialTheme.colorScheme.primary
-        "ACCEPTED"  -> "قبل"      to MaterialTheme.colorScheme.tertiary
-        "REJECTED"  -> "مرفوض"   to MaterialTheme.colorScheme.error
-        "WITHDRAWN" -> "انسحب"   to MaterialTheme.colorScheme.onSurfaceVariant
-        else        -> "حالة غير معروفة" to MaterialTheme.colorScheme.onSurfaceVariant
+    val label = StatusLabels.applicationForBusiness(status)
+    val color = when (status) {
+        "PENDING"   -> MaterialTheme.colorScheme.secondary
+        "OFFERED"   -> MaterialTheme.colorScheme.primary
+        "ACCEPTED"  -> MaterialTheme.colorScheme.tertiary
+        "REJECTED"  -> MaterialTheme.colorScheme.error
+        "WITHDRAWN" -> MaterialTheme.colorScheme.onSurfaceVariant
+        "CANCELLED" -> MaterialTheme.colorScheme.error
+        else        -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(
         text = label,

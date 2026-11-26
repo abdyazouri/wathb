@@ -53,6 +53,7 @@ import com.yawmiyati.app.ui.components.SupportWhatsappButton
 import com.yawmiyati.app.viewmodels.AdminUiState
 import com.yawmiyati.app.viewmodels.AdminViewModel
 import com.yawmiyati.app.viewmodels.VerifyActionState
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -213,13 +214,7 @@ private fun BusinessCard(business: AdminBusinessProfile, onClick: () -> Unit) {
 
 @Composable
 private fun StatusBadge(status: String) {
-    val label = when (status) {
-        "PENDING"   -> "معلق"
-        "APPROVED"  -> "موافق"
-        "REJECTED"  -> "مرفوض"
-        "SUSPENDED" -> "موقوف"
-        else        -> "حالة غير معروفة"
-    }
+    val label = StatusLabels.verificationForAdmin(status)
     val color = when (status) {
         "APPROVED"  -> MaterialTheme.colorScheme.primary
         "REJECTED"  -> MaterialTheme.colorScheme.error
@@ -251,7 +246,7 @@ private fun VerifyDialog(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = "الحالة: ${statusLabel(business.verificationStatus)}",
+                    text = "الحالة: ${StatusLabels.verificationForAdmin(business.verificationStatus)}",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 if (!business.tradeName.isNullOrBlank())
@@ -329,12 +324,4 @@ private fun DetailRow(label: String, value: String) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodySmall)
     }
-}
-
-private fun statusLabel(status: String): String = when (status) {
-    "PENDING"   -> "معلق"
-    "APPROVED"  -> "موافق عليه"
-    "REJECTED"  -> "مرفوض"
-    "SUSPENDED" -> "موقوف"
-    else        -> "حالة غير معروفة"
 }

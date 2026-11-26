@@ -47,6 +47,7 @@ import com.yawmiyati.app.ui.components.rememberWageAcknowledgeGate
 import com.yawmiyati.app.viewmodels.WorkerAssignmentActionState
 import com.yawmiyati.app.viewmodels.WorkerAssignmentDetailViewModel
 import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -248,6 +249,12 @@ fun WorkerAssignmentDetailScreen(
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.tertiary
                                 )
+                            } else if (wage != null) {
+                                Text(
+                                    "الأجر: ${StatusLabels.wageForWorker(wage.status)}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             } else {
                                 Text(
                                     "جاري تحميل بيانات الأجر...",
@@ -272,9 +279,9 @@ fun WorkerAssignmentDetailScreen(
                         }
                         else -> {
                             Text(
-                                "✓ تم دفع أجرك",
+                                StatusLabels.assignment(assignmentStatus),
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.tertiary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }

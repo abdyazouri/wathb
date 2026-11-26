@@ -52,6 +52,7 @@ import com.yawmiyati.app.viewmodels.WagesViewModel
 import com.yawmiyati.app.ui.utils.formatArabicDate
 import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 import java.time.LocalDate
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -249,17 +250,18 @@ private fun DeclarePaymentDialog(
 
 @Composable
 private fun WageStatusBadge(status: String) {
-    val (label, color) = when (status) {
-        "PENDING"       -> "معلق"              to MaterialTheme.colorScheme.secondary
-        "DUE"           -> "مستحق"             to MaterialTheme.colorScheme.error
-        "DECLARED"      -> "تم الإعلان"        to MaterialTheme.colorScheme.primary
-        "AWAITING_ACK"  -> "بانتظار التأكيد"   to MaterialTheme.colorScheme.primary
-        "UNDER_REVIEW"  -> "قيد المراجعة"      to MaterialTheme.colorScheme.secondary
-        "VERIFIED_PAID" -> "مدفوع ومؤكد"       to MaterialTheme.colorScheme.tertiary
-        "REJECTED"      -> "مرفوض"             to MaterialTheme.colorScheme.error
-        "DISPUTED"      -> "متنازع عليه"       to MaterialTheme.colorScheme.error
-        "CANCELLED"     -> "ملغى"              to MaterialTheme.colorScheme.error
-        else            -> "حالة غير معروفة"   to MaterialTheme.colorScheme.onSurfaceVariant
+    val label = StatusLabels.wageForBusiness(status)
+    val color = when (status) {
+        "PENDING"       -> MaterialTheme.colorScheme.secondary
+        "DUE"           -> MaterialTheme.colorScheme.error
+        "DECLARED"      -> MaterialTheme.colorScheme.primary
+        "AWAITING_ACK"  -> MaterialTheme.colorScheme.primary
+        "UNDER_REVIEW"  -> MaterialTheme.colorScheme.secondary
+        "VERIFIED_PAID" -> MaterialTheme.colorScheme.tertiary
+        "REJECTED"      -> MaterialTheme.colorScheme.error
+        "DISPUTED"      -> MaterialTheme.colorScheme.error
+        "CANCELLED"     -> MaterialTheme.colorScheme.error
+        else            -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(color = color.copy(alpha = 0.12f), shape = MaterialTheme.shapes.small) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = color,

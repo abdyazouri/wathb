@@ -45,6 +45,7 @@ import com.yawmiyati.app.ui.utils.formatArabicDate
 import com.yawmiyati.app.viewmodels.WorkerAppsActionState
 import com.yawmiyati.app.viewmodels.WorkerAppsUiState
 import com.yawmiyati.app.viewmodels.WorkerApplicationsViewModel
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -178,13 +179,15 @@ private fun ApplicationCard(
 
 @Composable
 private fun StatusChip(status: String) {
-    val (label, color) = when (status) {
-        "PENDING"   -> "معلّق"   to MaterialTheme.colorScheme.secondary
-        "OFFERED"   -> "معروض"   to MaterialTheme.colorScheme.primary
-        "ACCEPTED"  -> "مقبول"   to MaterialTheme.colorScheme.tertiary
-        "REJECTED"  -> "مرفوض"   to MaterialTheme.colorScheme.error
-        "WITHDRAWN" -> "مسحوب"   to MaterialTheme.colorScheme.onSurfaceVariant
-        else        -> status    to MaterialTheme.colorScheme.onSurfaceVariant
+    val label = StatusLabels.applicationForWorker(status)
+    val color = when (status) {
+        "PENDING"   -> MaterialTheme.colorScheme.secondary
+        "OFFERED"   -> MaterialTheme.colorScheme.primary
+        "ACCEPTED"  -> MaterialTheme.colorScheme.tertiary
+        "REJECTED"  -> MaterialTheme.colorScheme.error
+        "WITHDRAWN" -> MaterialTheme.colorScheme.onSurfaceVariant
+        "CANCELLED" -> MaterialTheme.colorScheme.error
+        else        -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(text = label, style = MaterialTheme.typography.labelSmall, color = color)
 }

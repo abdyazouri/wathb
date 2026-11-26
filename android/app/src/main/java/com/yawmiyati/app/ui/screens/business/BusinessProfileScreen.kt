@@ -47,6 +47,7 @@ import com.yawmiyati.app.viewmodels.BusinessProfileSaveState
 import com.yawmiyati.app.viewmodels.BusinessProfileUiState
 import com.yawmiyati.app.viewmodels.BusinessProfileViewModel
 import com.yawmiyati.app.viewmodels.DeleteAccountState
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,13 +139,14 @@ fun BusinessProfileScreen(
                         )
                     }
 
-                    val verStatus = when (profile.verificationStatus) {
-                        "APPROVED"  -> "موثّق ✓" to MaterialTheme.colorScheme.primary
-                        "PENDING"   -> "في انتظار التحقق" to MaterialTheme.colorScheme.secondary
-                        "REJECTED"  -> "مرفوض" to MaterialTheme.colorScheme.error
-                        "SUSPENDED" -> "موقوف" to MaterialTheme.colorScheme.error
-                        else        -> profile.verificationStatus to MaterialTheme.colorScheme.onSurfaceVariant
-                    }
+                    val verStatus = StatusLabels.verificationForOwner(profile.verificationStatus) to
+                        when (profile.verificationStatus) {
+                            "APPROVED"  -> MaterialTheme.colorScheme.primary
+                            "PENDING"   -> MaterialTheme.colorScheme.secondary
+                            "REJECTED"  -> MaterialTheme.colorScheme.error
+                            "SUSPENDED" -> MaterialTheme.colorScheme.error
+                            else        -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
                     Surface(
                         color = verStatus.second.copy(alpha = 0.12f),
                         shape = MaterialTheme.shapes.small

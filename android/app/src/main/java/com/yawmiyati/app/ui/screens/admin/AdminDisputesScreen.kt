@@ -57,6 +57,7 @@ import com.yawmiyati.app.viewmodels.DisputeActionState
 import com.yawmiyati.app.viewmodels.DisputesUiState
 import com.yawmiyati.app.viewmodels.canSettleWage
 import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -399,12 +400,13 @@ private fun ResolveDialog(
 
 @Composable
 private fun DisputeStatusBadge(status: String) {
-    val (label, color) = when (status) {
-        "OPEN"      -> "مفتوح"        to MaterialTheme.colorScheme.error
-        "IN_REVIEW" -> "قيد المراجعة" to MaterialTheme.colorScheme.secondary
-        "RESOLVED"  -> "محلول"        to MaterialTheme.colorScheme.tertiary
-        "CLOSED"    -> "مغلق"         to MaterialTheme.colorScheme.onSurfaceVariant
-        else        -> status          to MaterialTheme.colorScheme.onSurfaceVariant
+    val label = StatusLabels.dispute(status)
+    val color = when (status) {
+        "OPEN"      -> MaterialTheme.colorScheme.error
+        "IN_REVIEW" -> MaterialTheme.colorScheme.secondary
+        "RESOLVED"  -> MaterialTheme.colorScheme.tertiary
+        "CLOSED"    -> MaterialTheme.colorScheme.onSurfaceVariant
+        else        -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(color = color.copy(alpha = 0.12f), shape = MaterialTheme.shapes.small) {
         Text(

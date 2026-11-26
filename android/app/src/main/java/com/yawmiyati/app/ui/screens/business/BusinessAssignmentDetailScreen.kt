@@ -46,6 +46,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yawmiyati.app.ui.components.ConfirmCancelDialog
 import com.yawmiyati.app.viewmodels.AssignmentWorkActionState
 import com.yawmiyati.app.viewmodels.BusinessAssignmentViewModel
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -218,11 +219,18 @@ fun BusinessAssignmentDetailScreen(
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
+                        "DECLINED" -> {
+                            Text(
+                                "رفض العامل المهمة",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         else -> {
                             Text(
-                                "✓ تم",
+                                StatusLabels.assignment(currentStatus),
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.tertiary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }

@@ -38,6 +38,7 @@ import com.yawmiyati.app.ui.utils.formatArabicDate
 import com.yawmiyati.app.viewmodels.AssignmentActionState
 import com.yawmiyati.app.viewmodels.AssignmentsUiState
 import com.yawmiyati.app.viewmodels.AssignmentsViewModel
+import com.yawmiyati.app.ui.utils.StatusLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -170,14 +171,15 @@ private fun BusinessAssignmentCard(
 
 @Composable
 private fun AssignmentStatusBadge(status: String) {
-    val (label, color) = when (status) {
-        "OFFERED"   -> "عرض جديد"   to MaterialTheme.colorScheme.primary
-        "ACCEPTED"  -> "مقبول"       to MaterialTheme.colorScheme.tertiary
-        "DECLINED"  -> "مرفوض"       to MaterialTheme.colorScheme.error
-        "ACTIVE"    -> "نشط"         to MaterialTheme.colorScheme.secondary
-        "COMPLETED" -> "مكتمل"       to MaterialTheme.colorScheme.tertiary
-        "CANCELLED" -> "ملغى"        to MaterialTheme.colorScheme.error
-        else        -> status        to MaterialTheme.colorScheme.onSurfaceVariant
+    val label = StatusLabels.assignment(status)
+    val color = when (status) {
+        "OFFERED"   -> MaterialTheme.colorScheme.primary
+        "ACCEPTED"  -> MaterialTheme.colorScheme.tertiary
+        "DECLINED"  -> MaterialTheme.colorScheme.error
+        "ACTIVE"    -> MaterialTheme.colorScheme.secondary
+        "COMPLETED" -> MaterialTheme.colorScheme.tertiary
+        "CANCELLED" -> MaterialTheme.colorScheme.error
+        else        -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(
         color = color.copy(alpha = 0.12f),
