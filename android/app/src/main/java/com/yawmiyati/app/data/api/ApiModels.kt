@@ -283,6 +283,8 @@ data class AssignmentResponse(
     @SerializedName("cancelled_at") val cancelledAt: String?,
     @SerializedName("cancellation_reason") val cancellationReason: String,
     @SerializedName("wage_obligation_id") val wageObligationId: String? = null,
+    // On an offer: terms the business changed since the worker applied. Null from older servers.
+    @SerializedName("changed_terms") val changedTerms: List<String>? = null,
 )
 
 // Sent by business when acting on a job application

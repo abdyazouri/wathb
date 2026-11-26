@@ -213,7 +213,7 @@ fun WorkerAssignmentDetailScreen(
                         )
                         when (status) {
                             "OFFERED" -> {
-                                Text("عرض مهمة — بانتظار قرارك", style = MaterialTheme.typography.bodyLarge)
+                                Text("اختارك صاحب العمل — أكّد حضورك من «طلباتي»", style = MaterialTheme.typography.bodyLarge)
                             }
                             "ACCEPTED", "ACTIVE" -> {
                                 val current = assignment

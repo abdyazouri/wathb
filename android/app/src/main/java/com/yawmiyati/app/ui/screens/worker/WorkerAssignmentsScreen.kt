@@ -59,6 +59,7 @@ import com.yawmiyati.app.viewmodels.nowInGaza
 import java.time.LocalDateTime
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import com.yawmiyati.app.ui.components.PullableState
+import com.yawmiyati.app.ui.utils.TermLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -321,18 +322,41 @@ internal fun AssignmentCard(
             // Action buttons
             when (assignment.status) {
                 "OFFERED" -> {
+                    // Applying said "I'm interested"; this confirms "I'll come on these terms",
+                    // and the terms are fixed for the wage and any dispute.
+                    Text(
+                        "اختارك صاحب العمل! راجع الشروط أعلاه وأكّد أنك ستحضر.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    val changed = assignment.changedTerms.orEmpty()
+                    if (changed.isNotEmpty()) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = MaterialTheme.shapes.small,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                "تغيّر منذ تقدّمت: ${TermLabels.changed(changed)}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = onAccept,
                             enabled = !isActionLoading,
                             modifier = Modifier.weight(1f)
-                        ) { Text("قبول المهمة") }
+                        ) { Text("أؤكد حضوري") }
                         OutlinedButton(
                             onClick = onDecline,
                             enabled = !isActionLoading,
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                             modifier = Modifier.weight(1f)
-                        ) { Text("رفض") }
+                        ) { Text("لا أستطيع") }
                     }
                 }
                 "COMPLETED" -> {
