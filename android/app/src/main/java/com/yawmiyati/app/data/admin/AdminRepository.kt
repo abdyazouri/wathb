@@ -95,6 +95,16 @@ class AdminRepository {
         }
     }
 
+    suspend fun listUnpaidWages(): AdminResult<List<WageObligationResponse>> {
+        return try {
+            val response = api.listUnpaidWages()
+            if (response.isSuccessful) AdminResult.Success(response.body() ?: emptyList())
+            else AdminResult.Error(parseError(response.errorBody()?.string()), response.code() == 401)
+        } catch (e: Exception) {
+            AdminResult.Error(networkMessage(e))
+        }
+    }
+
     suspend fun listStaleWages(): AdminResult<List<WageObligationResponse>> {
         return try {
             val response = api.listStaleWages()

@@ -47,12 +47,17 @@ class AdminDisputesViewModel : ViewModel() {
     private val _staleWages = MutableStateFlow<List<WageObligationResponse>>(emptyList())
     val staleWages: StateFlow<List<WageObligationResponse>> = _staleWages
 
+    private val _unpaidWages = MutableStateFlow<List<WageObligationResponse>>(emptyList())
+    /** Due 3+ days, no payment declared. */
+    val unpaidWages: StateFlow<List<WageObligationResponse>> = _unpaidWages
+
     private val _phoneResolveState = MutableStateFlow<DisputeActionState>(DisputeActionState.Idle)
     val phoneResolveState: StateFlow<DisputeActionState> = _phoneResolveState
 
     init {
         load()
         loadStaleWages()
+        loadUnpaidWages()
     }
 
     fun load() {
@@ -109,6 +114,13 @@ class AdminDisputesViewModel : ViewModel() {
             } catch (e: Exception) {
                 _actionState.value = DisputeActionState.Error(e.message ?: "خطأ في الاتصال")
             }
+        }
+    }
+
+    fun loadUnpaidWages() {
+        viewModelScope.launch {
+            val result = adminRepository.listUnpaidWages()
+            if (result is AdminResult.Success) _unpaidWages.value = result.data
         }
     }
 

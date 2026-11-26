@@ -90,10 +90,10 @@ fun WorkerWorkSection(
             completionState is WorkerCompletionUiState.Error ->
                 Text(completionState.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             completion == null -> {
-                Text("عند انتهاء الشغل اضغط «أنهيت المهمة». يؤكد صاحب العمل، وإن لم يرد خلال ٢٤ ساعة يتأكد تلقائيًا.",
+                Text("عند انتهاء الشغل اضغط «أتممت يوم عملي واطلب أجري». يؤكد صاحب العمل، وإن لم يرد خلال ٢٤ ساعة يتأكد تلقائيًا.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button(onClick = { showFinishDialog = true }, enabled = !isLoading, modifier = Modifier.fillMaxWidth()) {
-                    Text("أنهيت المهمة")
+                    Text("أتممت يوم عملي واطلب أجري")
                 }
             }
             else -> CompletionStatus(completion, mine(completion.submittedByPhone), isLoading, onConfirmCompletion, onDisputeCompletion)
@@ -131,7 +131,7 @@ private fun CompletionStatus(
 ) {
     when (record.status) {
         "SUBMITTED" -> if (mine) {
-            Text("أرسلت «أنهيت المهمة». بانتظار تأكيد صاحب العمل، ويتأكد تلقائيًا بعد ٢٤ ساعة إن لم يرد.",
+            Text("✓ أرسلت طلب أجرك. بانتظار صاحب العمل، ويتأكد تلقائيًا بعد ٢٤ ساعة إن لم يرد.",
                 style = MaterialTheme.typography.bodyMedium)
         } else {
             Text("سجّل صاحب العمل أن المهمة انتهت. هل هذا صحيح؟", style = MaterialTheme.typography.bodyMedium)
@@ -139,7 +139,7 @@ private fun CompletionStatus(
         }
         "CONFIRMED" -> Text("✓ تم تأكيد إنهاء المهمة.", color = MaterialTheme.colorScheme.tertiary,
             style = MaterialTheme.typography.bodyMedium)
-        "DISPUTED" -> Text("تم الاعتراض على إنهاء المهمة، وسيتابع المشرف.", color = MaterialTheme.colorScheme.error,
+        "DISPUTED" -> Text("تم الاعتراض على إتمام العمل، والنزاع لدى مشرف وَثْب.", color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium)
         else -> Text(StatusLabels.completion(record.status), style = MaterialTheme.typography.bodyMedium)
     }
@@ -164,10 +164,10 @@ private fun FinishTaskDialog(onDismiss: () -> Unit, onConfirm: (hoursWorked: Str
     var notes by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("أنهيت المهمة") },
+        title = { Text("أتممت يوم عملي واطلب أجري") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("سيُطلب من صاحب العمل تأكيد إنهاء المهمة، وبعدها يُسجَّل أجرك.")
+                Text("سيصل طلب أجرك إلى صاحب العمل الآن. إن لم يرد خلال ٢٤ ساعة يتأكد إتمام العمل تلقائيًا ويصبح أجرك مستحقًا.")
                 OutlinedTextField(
                     value = hours,
                     onValueChange = { v -> hours = v.filter { it.isDigit() || it == '.' }.take(5) },
@@ -186,7 +186,7 @@ private fun FinishTaskDialog(onDismiss: () -> Unit, onConfirm: (hoursWorked: Str
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(hours.ifBlank { null }, notes.trim()) }) { Text("تأكيد") }
+            Button(onClick = { onConfirm(hours.ifBlank { null }, notes.trim()) }) { Text("إرسال الطلب") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("إلغاء") } }
     )

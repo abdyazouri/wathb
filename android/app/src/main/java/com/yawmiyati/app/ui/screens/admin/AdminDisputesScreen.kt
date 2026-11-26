@@ -60,6 +60,7 @@ import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 import com.yawmiyati.app.ui.utils.StatusLabels
 import com.yawmiyati.app.ui.components.PullableState
 import com.yawmiyati.app.ui.components.Refreshable
+import com.yawmiyati.app.ui.utils.formatArabicDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +71,7 @@ fun AdminDisputesScreen(
     val uiState by viewModel.uiState.collectAsState()
     val actionState by viewModel.actionState.collectAsState()
     val staleWages by viewModel.staleWages.collectAsState()
+    val unpaidWages by viewModel.unpaidWages.collectAsState()
     val phoneResolveState by viewModel.phoneResolveState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -144,6 +146,22 @@ fun AdminDisputesScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (unpaidWages.isNotEmpty()) {
+                Text(
+                    "أجور لم تُدفع منذ ٣ أيام",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                unpaidWages.forEach { obligation ->
+                    UnpaidWageCard(
+                        obligation = obligation,
+                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp)
+                    )
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            }
+
             if (staleWages.isNotEmpty()) {
                 Text(
                     "بانتظار إقرار العامل",
@@ -165,7 +183,7 @@ fun AdminDisputesScreen(
 
             Refreshable(
                 isRefreshing = false,
-                onRefresh = { viewModel.load(); viewModel.loadStaleWages() },
+                onRefresh = { viewModel.load(); viewModel.loadStaleWages(); viewModel.loadUnpaidWages() },
                 modifier = Modifier
             ) {
                 when (val state = uiState) {
@@ -197,6 +215,40 @@ fun AdminDisputesScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/** A wage due 3+ days with no payment declared: call the business. */
+@Composable
+private fun UnpaidWageCard(obligation: WageObligationResponse, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val phone = obligation.businessPhone.orEmpty()
+    Card(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(obligation.businessName ?: "صاحب العمل", style = MaterialTheme.typography.titleSmall)
+                    Text("العامل: ${obligation.workerName ?: obligation.workerPhone}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (phone.isNotBlank()) {
+                    IconButton(onClick = {
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                    }) {
+                        Icon(Icons.Filled.Call, contentDescription = "اتصل بصاحب العمل")
+                    }
+                }
+            }
+            Text(obligation.jobTitle, style = MaterialTheme.typography.bodyMedium)
+            Text(obligation.amountDisplay.toArabicAmountDisplay(), style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.error)
+            Text("مستحق منذ: ${formatArabicDate(obligation.dueDate)}", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

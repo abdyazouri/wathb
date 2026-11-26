@@ -148,6 +148,7 @@ fun WorkerApplicationsScreen(
                                         AssignmentCard(
                                             assignment = a,
                                             started = false,
+                                            onRequestWage = { assignmentsViewModel.requestWage(a.id) },
                                             isActionLoading = assignmentActionState is AssignmentActionState.Loading,
                                             onAccept = { assignmentsViewModel.acceptAssignment(a.id) },
                                             onDecline = { assignmentsViewModel.declineAssignment(a.id) },

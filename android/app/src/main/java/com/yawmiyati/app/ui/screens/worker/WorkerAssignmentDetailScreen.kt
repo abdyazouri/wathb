@@ -54,6 +54,7 @@ import com.yawmiyati.app.viewmodels.canWorkerCancel
 import com.yawmiyati.app.viewmodels.hasStarted
 import com.yawmiyati.app.viewmodels.nowInGaza
 import com.yawmiyati.app.ui.components.Refreshable
+import com.yawmiyati.app.viewmodels.workDayReached
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -217,7 +218,8 @@ fun WorkerAssignmentDetailScreen(
                             }
                             "ACCEPTED", "ACTIVE" -> {
                                 val current = assignment
-                                if (current != null && !current.hasStarted(now)) {
+                                // The work section (check-in, «أتممت يوم عملي واطلب أجري») opens on the work day.
+                            if (current != null && !current.workDayReached(now.toLocalDate())) {
                                     Text(
                                         "مقبولة — تبدأ ${formatArabicDate(current.jobWorkDate.orEmpty())} " +
                                             "الساعة ${formatArabicTime(current.jobStartTime.orEmpty())}",

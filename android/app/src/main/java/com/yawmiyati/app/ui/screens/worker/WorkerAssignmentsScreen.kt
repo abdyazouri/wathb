@@ -60,6 +60,8 @@ import java.time.LocalDateTime
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import com.yawmiyati.app.ui.components.PullableState
 import com.yawmiyati.app.ui.utils.TermLabels
+import com.yawmiyati.app.viewmodels.canRequestWage
+import com.yawmiyati.app.ui.components.RequestWageDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,6 +171,7 @@ fun WorkerAssignmentsScreen(
                         AssignmentCard(
                             assignment = assignment,
                             started = true,
+                            onRequestWage = { viewModel.requestWage(assignment.id) },
                             isActionLoading = actionState is AssignmentActionState.Loading,
                             onAccept  = { viewModel.acceptAssignment(assignment.id) },
                             onDecline = { viewModel.declineAssignment(assignment.id) },
@@ -185,6 +188,26 @@ fun WorkerAssignmentsScreen(
     }
 }
 
+/** Where the worker's wage request stands, shown on the task card. */
+@Composable
+private fun WageRequestStatus(assignment: AssignmentResponse) {
+    val byWorker = assignment.completionRequestedByWorker == true
+    val (text, color) = when (assignment.completionStatus) {
+        "SUBMITTED" -> if (byWorker) {
+            "✓ أرسلت طلب أجرك. بانتظار صاحب العمل، ويتأكد تلقائيًا بعد ٢٤ ساعة." to MaterialTheme.colorScheme.tertiary
+        } else {
+            "سجّل صاحب العمل إتمام العمل — أكّده أو اعترض من صفحة المهمة." to MaterialTheme.colorScheme.primary
+        }
+        "DISPUTED" -> if (byWorker) {
+            "قال صاحب العمل إن العمل لم يتم، والنزاع لدى مشرف وَثْب." to MaterialTheme.colorScheme.error
+        } else {
+            "تم الاعتراض على إتمام العمل، والنزاع لدى مشرف وَثْب." to MaterialTheme.colorScheme.error
+        }
+        else -> return
+    }
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = color)
+}
+
 private const val NO_TASKS_YET = "لا توجد مهام بدأت بعد.\nالمهمة المقبولة تنتقل إلى هنا عند بدء وقت العمل."
 
 /** [started]: the job's start time has come («مهامي»); otherwise it is shown in «طلباتي». */
@@ -192,6 +215,7 @@ private const val NO_TASKS_YET = "لا توجد مهام بدأت بعد.\nال�
 internal fun AssignmentCard(
     assignment: AssignmentResponse,
     started: Boolean,
+    onRequestWage: () -> Unit = {},
     isActionLoading: Boolean,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
@@ -392,14 +416,25 @@ internal fun AssignmentCard(
                         }
                     }
                 }
-                "ACCEPTED", "ACTIVE" -> if (started) {
-                    Text(
-                        "سجّل حضورك وأنهِ المهمة من صفحة المهمة.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(onClick = onManage, modifier = Modifier.fillMaxWidth()) { Text("فتح المهمة") }
-                } else {
+                "ACCEPTED", "ACTIVE" -> {
+                    WageRequestStatus(assignment)
+                    if (assignment.canRequestWage(nowInGaza().toLocalDate())) {
+                        var confirmRequest by remember { mutableStateOf(false) }
+                        if (confirmRequest) {
+                            RequestWageDialog(
+                                onConfirm = { confirmRequest = false; onRequestWage() },
+                                onDismiss = { confirmRequest = false }
+                            )
+                        }
+                        Button(
+                            onClick = { confirmRequest = true },
+                            enabled = !isActionLoading,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("أتممت يوم عملي واطلب أجري") }
+                    }
+                    if (started) {
+                        OutlinedButton(onClick = onManage, modifier = Modifier.fillMaxWidth()) { Text("فتح المهمة") }
+                    } else {
                     val start = assignment.workStart()
                     if (start != null) {
                         Text(
@@ -410,6 +445,7 @@ internal fun AssignmentCard(
                         )
                     }
                     OutlinedButton(onClick = onManage, modifier = Modifier.fillMaxWidth()) { Text("التفاصيل") }
+                    }
                 }
                 // DECLINED/CANCELLED: no action
             }

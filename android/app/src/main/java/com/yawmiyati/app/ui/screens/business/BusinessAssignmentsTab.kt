@@ -41,6 +41,11 @@ import com.yawmiyati.app.viewmodels.AssignmentsViewModel
 import com.yawmiyati.app.ui.utils.StatusLabels
 import com.yawmiyati.app.ui.components.PullableState
 import com.yawmiyati.app.ui.components.Refreshable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import com.yawmiyati.app.ui.components.NotDoneDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +101,7 @@ fun BusinessAssignmentsTab(
                                 assignment = assignment,
                                 isActionLoading = actionState is AssignmentActionState.Loading,
                                 onComplete = { viewModel.businessComplete(assignment.id) },
+                            onNotDone = { category, notes -> viewModel.reportNotDone(assignment.id, category, notes) },
                                 onManage = { onManageAssignment(assignment.id, assignment.workerPhone, assignment.status) }
                             )
                         }
@@ -112,8 +118,17 @@ private fun BusinessAssignmentCard(
     assignment: AssignmentResponse,
     isActionLoading: Boolean,
     onComplete: () -> Unit = {},
+    onNotDone: (category: String, notes: String) -> Unit = { _, _ -> },
     onManage: () -> Unit = {}
 ) {
+    var showNotDone by remember { mutableStateOf(false) }
+    if (showNotDone) {
+        NotDoneDialog(
+            isLoading = isActionLoading,
+            onConfirm = { category, notes -> showNotDone = false; onNotDone(category, notes) },
+            onDismiss = { showNotDone = false }
+        )
+    }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -146,8 +161,47 @@ private fun BusinessAssignmentCard(
                 )
             }
 
-            when (assignment.status) {
-                "ACCEPTED", "ACTIVE" -> {
+            val workerAsked = assignment.completionStatus == "SUBMITTED" &&
+                assignment.completionRequestedByWorker == true
+            when {
+                assignment.status in listOf("ACCEPTED", "ACTIVE") && workerAsked -> {
+                    // The worker pressed «أتممت يوم عملي واطلب أجري».
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "أتمّ العامل يوم العمل ويطلب أجره. إن لم ترد خلال ٢٤ ساعة يتأكد الإتمام تلقائيًا.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = onComplete,
+                            enabled = !isActionLoading,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("تأكيد ودفع الأجر") }
+                        OutlinedButton(
+                            onClick = { showNotDone = true },
+                            enabled = !isActionLoading,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("لم يتم العمل") }
+                    }
+                }
+                assignment.status in listOf("ACCEPTED", "ACTIVE") && assignment.completionStatus == "DISPUTED" -> {
+                    Text(
+                        if (assignment.completionRequestedByWorker == true) "أبلغت أن العمل لم يتم — النزاع لدى مشرف وَثْب."
+                        else "اعترض العامل على إتمام العمل — النزاع لدى مشرف وَثْب.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                assignment.status in listOf("ACCEPTED", "ACTIVE") -> {
+                    // The worker has not asked (yet): the business can still record completion.
                     Button(
                         onClick = onComplete,
                         enabled = !isActionLoading,
@@ -164,7 +218,7 @@ private fun BusinessAssignmentCard(
                         }
                     }
                 }
-                "COMPLETED" -> {
+                assignment.status == "COMPLETED" -> {
                     Text(
                         "✓ بانتظار إقرار العامل",
                         style = MaterialTheme.typography.bodySmall,

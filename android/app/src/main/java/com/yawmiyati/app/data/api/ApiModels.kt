@@ -285,6 +285,10 @@ data class AssignmentResponse(
     @SerializedName("wage_obligation_id") val wageObligationId: String? = null,
     // On an offer: terms the business changed since the worker applied. Null from older servers.
     @SerializedName("changed_terms") val changedTerms: List<String>? = null,
+    // SUBMITTED / CONFIRMED / DISPUTED, or null before anyone recorded completion.
+    @SerializedName("completion_status") val completionStatus: String? = null,
+    // True when the worker pressed «أتممت يوم عملي واطلب أجري».
+    @SerializedName("completion_requested_by_worker") val completionRequestedByWorker: Boolean? = null,
 )
 
 // Sent by business when acting on a job application
@@ -329,6 +333,12 @@ data class CompletionResponse(
     @SerializedName("confirmed_at") val confirmedAt: String?
 )
 
+/** Business «لم يتم العمل»: category WORKER_NO_SHOW or WORK_INCOMPLETE is required by the server. */
+data class CompletionDisputeRequest(
+    val category: String? = null,
+    val description: String = ""
+)
+
 data class CompletionSubmitRequest(
     @SerializedName("hours_worked") val hoursWorked: String? = null,
     val notes: String = ""
@@ -343,6 +353,8 @@ data class WageObligationResponse(
     @SerializedName("worker_phone") val workerPhone: String,
     @SerializedName("worker_name") val workerName: String? = null,
     @SerializedName("job_title") val jobTitle: String,
+    @SerializedName("business_name") val businessName: String? = null,
+    @SerializedName("business_phone") val businessPhone: String? = null,
     val amount: Long,
     val currency: String,
     @SerializedName("amount_display") val amountDisplay: String,

@@ -76,6 +76,30 @@ class AssignmentsViewModel(
         }
     }
 
+    /** Worker: «أتممت يوم عملي واطلب أجري». The server ignores a second press. */
+    fun requestWage(id: String) = performAndReload {
+        repository.submitCompletion(id, com.yawmiyati.app.data.api.CompletionSubmitRequest())
+    }
+
+    /** Business: «لم يتم العمل» with [category] WORKER_NO_SHOW or WORK_INCOMPLETE. */
+    fun reportNotDone(id: String, category: String, description: String) = performAndReload {
+        repository.disputeCompletion(id, com.yawmiyati.app.data.api.CompletionDisputeRequest(category, description.trim()))
+    }
+
+    private fun performAndReload(block: suspend () -> AssignmentResult<*>) {
+        if (_actionState.value is AssignmentActionState.Loading) return
+        viewModelScope.launch {
+            _actionState.value = AssignmentActionState.Loading
+            _actionState.value = when (val result = block()) {
+                is AssignmentResult.Success -> {
+                    loadAssignments()
+                    AssignmentActionState.Success
+                }
+                is AssignmentResult.Error -> AssignmentActionState.Error(result.message)
+            }
+        }
+    }
+
     fun businessComplete(id: String) {
         if (_actionState.value is AssignmentActionState.Loading) return
         viewModelScope.launch {

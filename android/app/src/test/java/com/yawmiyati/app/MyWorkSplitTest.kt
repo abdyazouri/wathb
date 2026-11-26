@@ -3,6 +3,7 @@ package com.yawmiyati.app
 import com.yawmiyati.app.data.api.AssignmentResponse
 import com.yawmiyati.app.data.api.JobApplicationResponse
 import com.yawmiyati.app.viewmodels.MyApplicationsItem
+import com.yawmiyati.app.viewmodels.canRequestWage
 import com.yawmiyati.app.viewmodels.canWorkerCancel
 import com.yawmiyati.app.viewmodels.splitMyWork
 import org.junit.Assert.assertEquals
@@ -97,6 +98,20 @@ class MyWorkSplitTest {
             now,
         )
         assertEquals(listOf("a:offer", "a:soon", "a:late", "p:pen", "p:rej"), ids(split.applications))
+    }
+
+    @Test
+    fun `wage request button shows from the work date until the request is sent`() {
+        val job = assignment("a", "ACCEPTED", date = "2026-12-03")
+        assertFalse("before the work date", job.canRequestWage(LocalDate.of(2026, 12, 2)))
+        assertTrue("on the work date", job.canRequestWage(LocalDate.of(2026, 12, 3)))
+        assertTrue("worker forgot, next day", job.canRequestWage(LocalDate.of(2026, 12, 4)))
+        val sent = job.copy(completionStatus = "SUBMITTED", completionRequestedByWorker = true)
+        assertFalse("after the request is sent", sent.canRequestWage(LocalDate.of(2026, 12, 3)))
+        assertFalse("business already recorded it", job.copy(completionStatus = "CONFIRMED").canRequestWage(LocalDate.of(2026, 12, 3)))
+        for (s in listOf("OFFERED", "ACTIVE", "COMPLETED", "CANCELLED", "DECLINED")) {
+            assertFalse(s, assignment("b", s, date = "2026-12-03").canRequestWage(LocalDate.of(2026, 12, 3)))
+        }
     }
 
     @Test

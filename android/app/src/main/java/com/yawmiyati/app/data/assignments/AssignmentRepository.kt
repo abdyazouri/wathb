@@ -147,9 +147,12 @@ open class AssignmentRepository {
         } catch (e: Exception) { AssignmentResult.Error(networkMessage(e)) }
     }
 
-    open suspend fun disputeCompletion(assignmentId: String): AssignmentResult<CompletionResponse> {
+    open suspend fun disputeCompletion(
+        assignmentId: String,
+        request: com.yawmiyati.app.data.api.CompletionDisputeRequest = com.yawmiyati.app.data.api.CompletionDisputeRequest()
+    ): AssignmentResult<CompletionResponse> {
         return try {
-            val response = api.disputeCompletion(assignmentId)
+            val response = api.disputeCompletion(assignmentId, request)
             if (response.isSuccessful) AssignmentResult.Success(response.body()!!)
             else AssignmentResult.Error(parseError(response.errorBody()?.string()), response.code() == 401)
         } catch (e: Exception) { AssignmentResult.Error(networkMessage(e)) }

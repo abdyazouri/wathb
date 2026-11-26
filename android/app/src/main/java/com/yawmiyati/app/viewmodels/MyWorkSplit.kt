@@ -27,6 +27,17 @@ fun AssignmentResponse.hasStarted(now: LocalDateTime): Boolean = workStart()?.le
 fun AssignmentResponse.canWorkerCancel(today: LocalDate): Boolean =
     status == "ACCEPTED" && jobWorkDate?.let { runCatching { today.isBefore(LocalDate.parse(it.take(10))) }.getOrNull() } == true
 
+/**
+ * «أتممت يوم عملي واطلب أجري»: on an accepted job, from the start of its work date (Gaza),
+ * until someone has recorded completion.
+ */
+fun AssignmentResponse.canRequestWage(today: LocalDate): Boolean =
+    status == "ACCEPTED" && completionStatus == null && workDayReached(today)
+
+/** The work date has come (Gaza time). */
+fun AssignmentResponse.workDayReached(today: LocalDate): Boolean =
+    jobWorkDate?.let { runCatching { !today.isBefore(LocalDate.parse(it.take(10))) }.getOrNull() } == true
+
 /** One row of «طلباتي»: either an offer/accepted job (assignment) or a plain application. */
 sealed class MyApplicationsItem {
     data class Offer(val assignment: AssignmentResponse) : MyApplicationsItem()

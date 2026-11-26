@@ -118,11 +118,12 @@ class BusinessAssignmentViewModel(
         }
     }
 
-    fun disputeCompletion(assignmentId: String) {
+    /** «لم يتم العمل»: [category] is WORKER_NO_SHOW or WORK_INCOMPLETE. */
+    fun disputeCompletion(assignmentId: String, category: String, description: String) {
         if (_actionState.value is AssignmentWorkActionState.Loading) return
         viewModelScope.launch {
             _actionState.value = AssignmentWorkActionState.Loading
-            when (val r = repository.disputeCompletion(assignmentId)) {
+            when (val r = repository.disputeCompletion(assignmentId, com.yawmiyati.app.data.api.CompletionDisputeRequest(category, description))) {
                 is AssignmentResult.Success -> {
                     _actionState.value = AssignmentWorkActionState.Success
                     _completionState.value = CompletionUiState.Submitted(r.data)

@@ -49,6 +49,10 @@ interface AdminApi {
     @GET("admin/disputes/stale-wages/")
     suspend fun listStaleWages(): Response<List<WageObligationResponse>>
 
+    /** Wages due 3+ days with no payment declared (the business got both reminders). */
+    @GET("admin/disputes/unpaid-wages/")
+    suspend fun listUnpaidWages(): Response<List<WageObligationResponse>>
+
     @PATCH("wages/{pk}/admin-phone-resolve/")
     suspend fun phoneResolveWage(
         @Path("pk") pk: String,
