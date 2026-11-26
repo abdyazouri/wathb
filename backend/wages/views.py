@@ -137,9 +137,10 @@ class AcknowledgePaymentView(APIView):
 class DisputePaymentView(APIView):
     permission_classes = [IsWorker]
 
+    @transaction.atomic
     def post(self, request, pk):
         try:
-            obligation = WageObligation.objects.get(pk=pk, assignment__worker=request.user)
+            obligation = WageObligation.objects.select_for_update().get(pk=pk, assignment__worker=request.user)
         except WageObligation.DoesNotExist:
             return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 

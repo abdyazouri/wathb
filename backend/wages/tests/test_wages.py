@@ -3,7 +3,7 @@ import io
 
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APITransactionTestCase
+from rest_framework.test import APIClient, APITestCase, APITransactionTestCase
 
 from accounts.models import User, Role, BusinessProfile, WorkerProfile
 from assignments.models import Assignment, AssignmentStatus
@@ -738,6 +738,72 @@ class ListCallSideEffectTests(APITestCase):
             recipient=self.worker, notification_type=NotificationType.WAGE_REMINDER_3D,
             related_id=str(obligation.pk),
         ).exists())
+
+
+class DisputePaymentConcurrencyTests(APITransactionTestCase):
+    """Runs in autocommit with real row locks. An acknowledge that commits while a
+    dispute request is in flight must win; the dispute must then see the new status."""
+
+    def setUp(self):
+        biz_user, biz_profile = make_business("+970599019001")
+        self.worker = make_worker("+970599019002")
+        _, assignment = make_job_and_assignment(biz_profile, self.worker)
+        self.obligation = make_obligation(assignment, obligation_status=WageObligationStatus.AWAITING_ACK)
+        self.declaration = make_declaration(self.obligation, biz_user)
+
+    def test_dispute_waits_for_concurrent_acknowledge(self):
+        import threading
+        import time
+        from django.db import connection, transaction
+        from disputes.models import Dispute
+
+        result = {}
+
+        def dispute_request():
+            try:
+                client = APIClient()
+                client.force_authenticate(user=self.worker)
+                result["response"] = client.post(
+                    reverse("wage-dispute-payment", args=[self.obligation.pk]),
+                    {"category": "PAYMENT_NOT_RECEIVED", "description": "لم أستلم"}, format="json",
+                )
+            finally:
+                connection.close()
+
+        with transaction.atomic():
+            # Acknowledge in progress: the wage row is locked.
+            locked = WageObligation.objects.select_for_update().get(pk=self.obligation.pk)
+            thread = threading.Thread(target=dispute_request)
+            thread.start()
+            time.sleep(0.5)  # the dispute request is now reading/waiting
+            locked.status = WageObligationStatus.VERIFIED_PAID
+            locked.save(update_fields=["status"])
+            PaymentDeclaration.objects.filter(pk=self.declaration.pk).update(
+                status=PaymentDeclarationStatus.ACKNOWLEDGED
+            )
+        thread.join(timeout=10)
+        self.assertFalse(thread.is_alive())
+
+        self.assertEqual(result["response"].status_code, status.HTTP_400_BAD_REQUEST)
+        self.obligation.refresh_from_db()
+        self.declaration.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.VERIFIED_PAID)
+        self.assertEqual(self.declaration.status, PaymentDeclarationStatus.ACKNOWLEDGED)
+        self.assertFalse(Dispute.objects.filter(wage_obligation=self.obligation).exists())
+
+    def test_dispute_outside_test_transaction(self):
+        from disputes.models import Dispute
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.post(
+            reverse("wage-dispute-payment", args=[self.obligation.pk]),
+            {"category": "PAYMENT_NOT_RECEIVED", "description": "لم أستلم"}, format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.obligation.refresh_from_db()
+        self.declaration.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.DISPUTED)
+        self.assertEqual(self.declaration.status, PaymentDeclarationStatus.DISPUTED)
+        self.assertEqual(Dispute.objects.filter(wage_obligation=self.obligation).count(), 1)
 
 
 class AdminStaleWageListTests(APITestCase):
