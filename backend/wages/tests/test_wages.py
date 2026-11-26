@@ -603,6 +603,81 @@ class AdminPhoneResolveAutocommitTests(APITransactionTestCase):
         self.assertEqual(self.obligation.status, WageObligationStatus.DISPUTED)
 
 
+class ListCallSideEffectTests(APITestCase):
+    """List/detail GETs run lazy auto-confirm and wage reminders. Those may create a wage
+    but must never move one along the payment flow."""
+
+    def setUp(self):
+        self.biz_user, biz_profile = make_business("+970599018001")
+        self.worker = make_worker("+970599018002")
+        self.admin = make_user("+970599018003", Role.ADMIN, is_staff=True)
+        _, self.assignment = make_job_and_assignment(biz_profile, self.worker)
+        self.assignment.status = AssignmentStatus.ACTIVE
+        self.assignment.save(update_fields=["status"])
+
+    def _hit_every_list_endpoint(self, completion_recorded):
+        pk = self.assignment.pk
+        calls = [
+            (self.worker, reverse("wage-list")),
+            (self.biz_user, reverse("wage-list")),
+            (self.admin, reverse("wage-list")),
+            (self.worker, reverse("notification-list")),
+            (self.biz_user, reverse("notification-list")),
+            (self.worker, reverse("assignment-list")),
+            (self.biz_user, reverse("assignment-list")),
+            (self.worker, reverse("assignment-detail", args=[pk])),
+            (self.worker, reverse("attendance-list", args=[pk])),
+            (self.worker, reverse("completion", args=[pk])),
+            (self.admin, reverse("admin-pilot-summary")),
+        ]
+        for user, url in calls:
+            self.client.force_authenticate(user=user)
+            response = self.client.get(url)
+            # The completion GET answers 404 when no completion has been recorded yet.
+            expected = status.HTTP_404_NOT_FOUND if url.endswith("/completion/") and not completion_recorded else status.HTTP_200_OK
+            self.assertEqual(response.status_code, expected, url)
+
+    def test_auto_confirm_creates_new_wage_as_pending(self):
+        from assignments.models import CompletionRecord, CompletionStatus
+        from django.utils import timezone as tz
+        comp = CompletionRecord.objects.create(
+            assignment=self.assignment, submitted_by=self.worker, status=CompletionStatus.SUBMITTED,
+        )
+        CompletionRecord.objects.filter(pk=comp.pk).update(submitted_at=tz.now() - datetime.timedelta(hours=25))
+
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.get(reverse("wage-list"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        obligation = WageObligation.objects.get(assignment=self.assignment)
+        self.assertEqual(obligation.status, WageObligationStatus.PENDING)
+        self.assertEqual([o["status"] for o in response.data["results"]], [WageObligationStatus.PENDING])
+
+        self._hit_every_list_endpoint(completion_recorded=True)
+        obligation.refresh_from_db()
+        self.assertEqual(obligation.status, WageObligationStatus.PENDING)
+        self.assertEqual(WageObligation.objects.filter(assignment=self.assignment).count(), 1)
+        self.assertFalse(obligation.declarations.exists())
+
+    def test_awaiting_ack_wage_unchanged_by_list_calls(self):
+        from django.utils import timezone as tz
+        obligation = make_obligation(self.assignment, obligation_status=WageObligationStatus.AWAITING_ACK)
+        declaration = make_declaration(obligation, self.biz_user)
+        # Old enough that the 3-day worker reminder fires on the list call.
+        PaymentDeclaration.objects.filter(pk=declaration.pk).update(declared_at=tz.now() - datetime.timedelta(days=4))
+
+        self._hit_every_list_endpoint(completion_recorded=False)
+
+        obligation.refresh_from_db()
+        declaration.refresh_from_db()
+        self.assertEqual(obligation.status, WageObligationStatus.AWAITING_ACK)
+        self.assertEqual(declaration.status, PaymentDeclarationStatus.SUBMITTED)
+        from notifications.models import Notification, NotificationType
+        self.assertTrue(Notification.objects.filter(
+            recipient=self.worker, notification_type=NotificationType.WAGE_REMINDER_3D,
+            related_id=str(obligation.pk),
+        ).exists())
+
+
 class AdminStaleWageListTests(APITestCase):
 
     def setUp(self):
