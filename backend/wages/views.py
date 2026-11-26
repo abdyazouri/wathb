@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 from django.conf import settings
 
@@ -101,8 +102,18 @@ class DeclarePaymentView(APIView):
         return Response(PaymentDeclarationSerializer(declaration).data, status=status.HTTP_201_CREATED)
 
 
+class _AcknowledgePasswordThrottle(UserRateThrottle):
+    scope = "acknowledge_password"
+
+
 class AcknowledgePaymentView(APIView):
+    """The app confirms the worker first: BiometricPrompt (fingerprint or screen lock)
+    or, on a phone with neither, the account password sent here as "password"."""
     permission_classes = [IsWorker]
+
+    def get_throttles(self):
+        # Only password attempts are limited, so the password cannot be guessed here.
+        return [_AcknowledgePasswordThrottle()] if "password" in self.request.data else []
 
     @transaction.atomic
     def post(self, request, pk):
@@ -112,6 +123,10 @@ class AcknowledgePaymentView(APIView):
             )
         except WageObligation.DoesNotExist:
             return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
+
+        password = request.data.get("password")
+        if password is not None and not request.user.check_password(password):
+            return Response({"detail": "كلمة المرور غير صحيحة."}, status=status.HTTP_403_FORBIDDEN)
 
         if obligation.status != WageObligationStatus.AWAITING_ACK:
             return Response(
@@ -130,7 +145,10 @@ class AcknowledgePaymentView(APIView):
         obligation.status = WageObligationStatus.VERIFIED_PAID
         obligation.save(update_fields=["status"])
 
-        _log_audit(request.user, "payment_acknowledged", "WageObligation", str(obligation.pk))
+        _log_audit(
+            request.user, "payment_acknowledged", "WageObligation", str(obligation.pk),
+            {"confirmed_with": "password" if password is not None else "device"},
+        )
         return Response(WageObligationSerializer(obligation).data)
 
 

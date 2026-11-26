@@ -127,6 +127,7 @@ REST_FRAMEWORK = {
         "login_per_ip": "10/min",
         "login_per_phone": "5/min",
         "delete_account": "5/hour",
+        "acknowledge_password": "10/hour",
     },
 }
 

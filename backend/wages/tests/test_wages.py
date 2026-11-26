@@ -251,6 +251,50 @@ class PaymentAcknowledgmentTests(APITestCase):
         response = self.client.post(reverse("wage-acknowledge", args=[self.obligation.pk]))
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def _ack(self, data=None):
+        self.client.force_authenticate(user=self.worker)
+        return self.client.post(reverse("wage-acknowledge", args=[self.obligation.pk]), data or {}, format="json")
+
+    def _ack_audit(self):
+        from audit.models import AuditEvent
+        return AuditEvent.objects.get(action="payment_acknowledged", object_id=str(self.obligation.pk))
+
+    def test_acknowledge_with_correct_password(self):
+        response = self._ack({"password": "P@ss1234"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.VERIFIED_PAID)
+        self.assertEqual(self._ack_audit().details, {"confirmed_with": "password"})
+
+    def test_acknowledge_with_wrong_or_blank_password_is_403_and_changes_nothing(self):
+        from yawmiyati.exception_handler import is_arabic
+        for password in ("wrong-password", ""):
+            response = self._ack({"password": password})
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, password)
+            self.assertEqual(response.data["detail"], "كلمة المرور غير صحيحة.")
+            self.assertTrue(is_arabic(response.data["detail"]))
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.AWAITING_ACK)
+        decl = PaymentDeclaration.objects.get(wage_obligation=self.obligation)
+        self.assertEqual(decl.status, PaymentDeclarationStatus.SUBMITTED)
+
+    def test_acknowledge_after_device_auth_records_method(self):
+        response = self._ack()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self._ack_audit().details, {"confirmed_with": "device"})
+
+    def test_password_attempts_are_throttled(self):
+        from django.core.cache import cache
+        from wages.views import _AcknowledgePasswordThrottle
+        cache.clear()
+        _AcknowledgePasswordThrottle.THROTTLE_RATES = {"acknowledge_password": "2/hour"}
+        try:
+            codes = [self._ack({"password": "wrong"}).status_code for _ in range(3)]
+        finally:
+            del _AcknowledgePasswordThrottle.THROTTLE_RATES  # back to the inherited settings
+            cache.clear()
+        self.assertEqual(codes, [403, 403, 429])
+
 
 class PaymentDisputeTests(APITestCase):
 
