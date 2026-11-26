@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Cleartext HTTP is permitted only for localhost and 10.0.2.2 (emulator host alias).
-  All other traffic, including the production API (api.yawmiyati.com), must use HTTPS.
-  Do not add domain-config entries for production hosts.
+  Release (and default): HTTPS only. The production API is
+  https://wathb-api2.onrender.com/api/v1/. Do not add domain-config entries here.
+  Debug builds use src/debug/res/xml/network_security_config.xml instead, which also
+  allows cleartext HTTP to a local backend.
 -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
@@ -10,8 +11,4 @@
             <certificates src="system"/>
         </trust-anchors>
     </base-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">10.0.2.2</domain>
-    </domain-config>
 </network-security-config>

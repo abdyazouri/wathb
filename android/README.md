@@ -23,12 +23,23 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
 ```bash
 ./gradlew installDebug
-adb shell am start -n com.yawmiyati.app/.MainActivity
+adb shell am start -n com.wathb.app/com.yawmiyati.app.MainActivity
 ```
 
 ## API configuration
 
-Debug builds point to `http://10.0.2.2:8000/api/v1/` (Mac host from emulator).
+Debug and release builds both use `https://wathb-api2.onrender.com/api/v1/`.
+
+To point a debug build at a local backend, add to `~/.gradle/gradle.properties`:
+
+```
+wathbApiBaseUrl=http://10.0.2.2:8000/api/v1/
+```
+
+`10.0.2.2` is the Mac host from the emulator. On a USB phone use
+`http://localhost:8000/api/v1/` and run `adb reverse tcp:8000 tcp:8000`.
+Cleartext HTTP to these two hosts is allowed in debug builds only
+(`app/src/debug/res/xml/network_security_config.xml`); release builds are HTTPS only.
 
 Start the backend:
 ```bash
