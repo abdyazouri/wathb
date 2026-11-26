@@ -296,6 +296,7 @@ private fun VerifyDialog(
                         value = reason,
                         onValueChange = { reason = it },
                         label = { Text("السبب (مطلوب)") },
+                        supportingText = { Text("لا تكتب اسمًا أو رقم هاتف في الملاحظة") },
                         modifier = Modifier.fillMaxWidth(),
                         maxLines = 3
                     )

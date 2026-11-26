@@ -267,6 +267,7 @@ private fun PhoneResolveDialog(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("ملاحظات المكالمة (مطلوبة)") },
+                    supportingText = { Text("لا تكتب اسمًا أو رقم هاتف في الملاحظة") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
@@ -365,6 +366,7 @@ private fun ResolveDialog(
                     value = notes,
                     onValueChange = { notes = it },
                     label = { Text("ملاحظات (مطلوبة)") },
+                    supportingText = { Text("لا تكتب اسمًا أو رقم هاتف في الملاحظة") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2
                 )
