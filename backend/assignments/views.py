@@ -18,6 +18,7 @@ from assignments.serializers import (
     CompletionRecordSerializer, CompletionSubmitSerializer,
 )
 from jobs.models import JobApplication, ApplicationStatus, JobListingStatus
+from yawmiyati.money import format_money
 
 
 class AssignmentListView(generics.ListAPIView):
@@ -65,11 +66,11 @@ class AssignmentAcceptView(APIView):
         try:
             assignment = Assignment.objects.select_for_update().get(pk=pk, worker=request.user)
         except Assignment.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if assignment.status != AssignmentStatus.OFFERED:
             return Response(
-                {"detail": f"Cannot accept an assignment with status '{assignment.status}'."},
+                {"detail": f"لا يمكن قبول مهمة حالتها «{assignment.get_status_display()}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -98,11 +99,11 @@ class AssignmentDeclineView(APIView):
         try:
             assignment = Assignment.objects.get(pk=pk, worker=request.user)
         except Assignment.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if assignment.status != AssignmentStatus.OFFERED:
             return Response(
-                {"detail": f"Cannot decline an assignment with status '{assignment.status}'."},
+                {"detail": f"لا يمكن رفض مهمة حالتها «{assignment.get_status_display()}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -128,22 +129,22 @@ class AssignmentCancelView(APIView):
         elif user.role == Role.ADMIN:
             qs = Assignment.objects.select_related("job").filter(pk=pk)
         else:
-            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             assignment = qs.get()
         except Assignment.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if assignment.status in (AssignmentStatus.COMPLETED, AssignmentStatus.CANCELLED):
-            return Response({"detail": "Cannot cancel a completed or already-cancelled assignment."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "لا يمكن إلغاء مهمة مكتملة أو ملغاة مسبقاً."}, status=status.HTTP_400_BAD_REQUEST)
 
         if timezone.now().date() >= assignment.job.work_date:
-            return Response({"detail": "Cannot cancel an assignment after the work date."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "لا يمكن إلغاء المهمة بعد يوم العمل."}, status=status.HTTP_400_BAD_REQUEST)
 
         reason = request.data.get("reason", "").strip()
         if not reason:
-            return Response({"detail": "reason is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يجب ذكر السبب."}, status=status.HTTP_400_BAD_REQUEST)
 
         assignment.status = AssignmentStatus.CANCELLED
         assignment.cancelled_at = timezone.now()
@@ -175,7 +176,7 @@ class AttendanceListCreateView(APIView):
     def get(self, request, pk):
         assignment = self._get_assignment(request, pk)
         if assignment is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
         _auto_confirm_pending(assignment)
         records = AttendanceRecord.objects.filter(assignment=assignment)
         return Response(AttendanceRecordSerializer(records, many=True).data)
@@ -183,10 +184,10 @@ class AttendanceListCreateView(APIView):
     def post(self, request, pk):
         assignment = self._get_assignment(request, pk)
         if assignment is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if assignment.status not in (AssignmentStatus.ACCEPTED, AssignmentStatus.ACTIVE):
-            return Response({"detail": "Attendance can only be submitted for active assignments."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن تسجيل الحضور للمهام المقبولة أو النشطة فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = AttendanceSubmitSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -230,10 +231,10 @@ class AttendanceConfirmView(APIView):
     def patch(self, request, pk, rec_id):
         record, assignment = self._get_record_and_check_authority(request, pk, rec_id)
         if record is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if record.status != AttendanceStatus.SUBMITTED:
-            return Response({"detail": "Only submitted attendance can be confirmed."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن تأكيد الحضور الذي بانتظار التأكيد فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         record.status = AttendanceStatus.CONFIRMED
         record.confirmed_by = request.user
@@ -275,10 +276,10 @@ class AttendanceDisputeView(APIView):
             elif user.role == Role.BUSINESS:
                 assignment = Assignment.objects.get(pk=pk, job__business__user=user)
             else:
-                return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
             record = AttendanceRecord.objects.get(pk=rec_id, assignment=assignment)
         except (Assignment.DoesNotExist, AttendanceRecord.DoesNotExist):
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if record.submitted_by == user:
             return Response(
@@ -287,7 +288,7 @@ class AttendanceDisputeView(APIView):
             )
 
         if record.status != AttendanceStatus.SUBMITTED:
-            return Response({"detail": "Only submitted attendance can be disputed."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن الاعتراض على الحضور الذي بانتظار التأكيد فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         record.status = AttendanceStatus.DISPUTED
         record.save(update_fields=["status"])
@@ -318,25 +319,25 @@ class CompletionView(APIView):
     def get(self, request, pk):
         assignment = self._get_assignment(request, pk)
         if assignment is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
         _auto_confirm_pending(assignment)
         try:
             record = assignment.completion_record
             return Response(CompletionRecordSerializer(record).data)
         except CompletionRecord.DoesNotExist:
-            return Response({"detail": "No completion record yet."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "لم يُسجَّل إتمام العمل بعد."}, status=status.HTTP_404_NOT_FOUND)
 
     @transaction.atomic
     def post(self, request, pk):
         assignment = self._get_assignment(request, pk)
         if assignment is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if assignment.status not in (AssignmentStatus.ACCEPTED, AssignmentStatus.ACTIVE):
-            return Response({"detail": "Completion can only be submitted for active assignments."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن تسجيل إتمام العمل للمهام المقبولة أو النشطة فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         if CompletionRecord.objects.filter(assignment=assignment).exists():
-            return Response({"detail": "Completion has already been submitted for this assignment."}, status=status.HTTP_409_CONFLICT)
+            return Response({"detail": "تم تسجيل إتمام العمل لهذه المهمة مسبقاً."}, status=status.HTTP_409_CONFLICT)
 
         serializer = CompletionSubmitSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -391,16 +392,16 @@ class CompletionConfirmView(APIView):
             elif user.role == Role.ADMIN:
                 assignment = Assignment.objects.get(pk=pk)
             else:
-                return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
             record = assignment.completion_record
         except (Assignment.DoesNotExist, CompletionRecord.DoesNotExist):
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if record.status != CompletionStatus.SUBMITTED:
-            return Response({"detail": "Only submitted completions can be confirmed."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن تأكيد الإتمام الذي بانتظار التأكيد فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         if record.submitted_by == user and user.role != Role.ADMIN:
-            return Response({"detail": "Cannot confirm your own completion submission."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "لا يمكنك تأكيد إتمام سجّلته أنت."}, status=status.HTTP_400_BAD_REQUEST)
 
         record.status = CompletionStatus.CONFIRMED
         record.confirmed_by = user
@@ -433,10 +434,10 @@ class CompletionDisputeView(APIView):
             elif user.role == Role.BUSINESS:
                 assignment = Assignment.objects.get(pk=pk, job__business__user=user)
             else:
-                return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
             record = assignment.completion_record
         except (Assignment.DoesNotExist, CompletionRecord.DoesNotExist):
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if record.submitted_by == user:
             return Response(
@@ -445,7 +446,7 @@ class CompletionDisputeView(APIView):
             )
 
         if record.status != CompletionStatus.SUBMITTED:
-            return Response({"detail": "Only submitted completions can be disputed."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن الاعتراض على الإتمام الذي بانتظار التأكيد فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         record.status = CompletionStatus.DISPUTED
         record.save(update_fields=["status"])
@@ -481,7 +482,7 @@ class BusinessCompleteAssignmentView(APIView):
                 pk=pk, job__business__user=request.user
             )
         except Assignment.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if assignment.status == AssignmentStatus.COMPLETED:
             return Response(AssignmentSerializer(assignment).data)
@@ -532,7 +533,7 @@ class BusinessCompleteAssignmentView(APIView):
             _notify(
                 assignment.worker, "PAYMENT_DECLARED",
                 f"أجرك بانتظار إقرارك: {assignment.job.title}",
-                f"تم تأكيد إتمام العمل. أجرك {obligation.amount} {obligation.currency} بانتظار إقرارك.",
+                f"تم تأكيد إتمام العمل. أجرك {format_money(obligation.amount)} بانتظار إقرارك.",
                 "WageObligation", str(obligation.pk),
             )
 

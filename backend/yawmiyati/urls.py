@@ -19,3 +19,6 @@ if settings.DEBUG:
         ),
     ]
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+handler404 = "yawmiyati.error_views.not_found"
+handler500 = "yawmiyati.error_views.server_error"

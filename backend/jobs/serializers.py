@@ -70,14 +70,14 @@ class JobListingCreateSerializer(serializers.ModelSerializer):
 
     def validate_wage_amount(self, value):
         if value <= 0:
-            raise serializers.ValidationError("Wage amount must be positive.")
+            raise serializers.ValidationError("يجب أن يكون الأجر أكبر من صفر.")
         return value
 
     def validate(self, attrs):
         start = attrs.get("start_time")
         end = attrs.get("end_time")
         if start and end and end <= start:
-            raise serializers.ValidationError({"end_time": "End time must be after start time."})
+            raise serializers.ValidationError({"end_time": "يجب أن يكون وقت الانتهاء بعد وقت البدء."})
         return attrs
 
 

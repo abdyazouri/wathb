@@ -61,7 +61,7 @@ class JobCancelCascadeTests(APITestCase):
     def test_cancel_requires_reason(self):
         resp = self.client.post(reverse("job-cancel", args=[self.job.pk]), {})
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("reason", resp.data["detail"].lower())
+        self.assertIn("السبب", resp.data["detail"])
 
     def test_cancel_stores_reason(self):
         self._cancel("تغيّرت الخطط")
@@ -159,7 +159,7 @@ class AssignmentCancelWorkerTests(APITestCase):
         self.job.save(update_fields=["work_date"])
         resp = self._cancel_as(self.worker)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("work date", resp.data["detail"].lower())
+        self.assertIn("بعد يوم العمل", resp.data["detail"])
 
     def test_business_can_still_cancel_assignment(self):
         resp = self._cancel_as(self.biz_user)

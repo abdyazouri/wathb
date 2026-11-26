@@ -4,25 +4,25 @@ from django.conf import settings
 
 
 class AssignmentStatus(models.TextChoices):
-    OFFERED = "OFFERED", "Offered"
-    ACCEPTED = "ACCEPTED", "Accepted"
-    DECLINED = "DECLINED", "Declined"
-    ACTIVE = "ACTIVE", "Active"
-    COMPLETED = "COMPLETED", "Completed"
-    CANCELLED = "CANCELLED", "Cancelled"
+    OFFERED = "OFFERED", "معروضة"
+    ACCEPTED = "ACCEPTED", "مقبولة"
+    DECLINED = "DECLINED", "مرفوضة"
+    ACTIVE = "ACTIVE", "نشطة"
+    COMPLETED = "COMPLETED", "مكتملة"
+    CANCELLED = "CANCELLED", "ملغاة"
 
 
 class AttendanceStatus(models.TextChoices):
-    SUBMITTED = "SUBMITTED", "Submitted"
-    CONFIRMED = "CONFIRMED", "Confirmed"
-    DISPUTED = "DISPUTED", "Disputed"
-    CANCELLED = "CANCELLED", "Cancelled"
+    SUBMITTED = "SUBMITTED", "بانتظار التأكيد"
+    CONFIRMED = "CONFIRMED", "مؤكَّد"
+    DISPUTED = "DISPUTED", "معترَض عليه"
+    CANCELLED = "CANCELLED", "ملغى"
 
 
 class CompletionStatus(models.TextChoices):
-    SUBMITTED = "SUBMITTED", "Submitted"
-    CONFIRMED = "CONFIRMED", "Confirmed"
-    DISPUTED = "DISPUTED", "Disputed"
+    SUBMITTED = "SUBMITTED", "بانتظار التأكيد"
+    CONFIRMED = "CONFIRMED", "مؤكَّد"
+    DISPUTED = "DISPUTED", "معترَض عليه"
 
 
 class Assignment(models.Model):

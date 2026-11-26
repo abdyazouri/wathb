@@ -15,9 +15,9 @@ class JobCategory(models.TextChoices):
 
 
 class WageBasis(models.TextChoices):
-    PER_DAY = "PER_DAY", "Per Day"
-    PER_TASK = "PER_TASK", "Per Task"
-    PER_HOUR = "PER_HOUR", "Per Hour"
+    PER_DAY = "PER_DAY", "يوم"
+    PER_TASK = "PER_TASK", "مهمة"
+    PER_HOUR = "PER_HOUR", "ساعة"
 
 
 class PaymentMethod(models.TextChoices):
@@ -33,13 +33,13 @@ class Currency(models.TextChoices):
 
 
 class JobListingStatus(models.TextChoices):
-    DRAFT = "DRAFT", "Draft"
-    PENDING_REVIEW = "PENDING_REVIEW", "Pending Review"
-    PUBLISHED = "PUBLISHED", "Published"
-    FILLED = "FILLED", "Filled"
-    IN_PROGRESS = "IN_PROGRESS", "In Progress"
-    COMPLETED = "COMPLETED", "Completed"
-    CANCELLED = "CANCELLED", "Cancelled"
+    DRAFT = "DRAFT", "مسودة"
+    PENDING_REVIEW = "PENDING_REVIEW", "قيد المراجعة"
+    PUBLISHED = "PUBLISHED", "منشورة"
+    FILLED = "FILLED", "اكتمل العدد"
+    IN_PROGRESS = "IN_PROGRESS", "قيد التنفيذ"
+    COMPLETED = "COMPLETED", "منتهية"
+    CANCELLED = "CANCELLED", "ملغاة"
 
 
 VALID_JOB_TRANSITIONS = {
@@ -54,13 +54,13 @@ VALID_JOB_TRANSITIONS = {
 
 
 class ApplicationStatus(models.TextChoices):
-    PENDING = "PENDING", "Pending"
-    OFFERED = "OFFERED", "Offered"
-    ACCEPTED = "ACCEPTED", "Accepted"
-    REJECTED = "REJECTED", "Rejected"
-    WITHDRAWN = "WITHDRAWN", "Withdrawn"
-    EXPIRED = "EXPIRED", "Expired"
-    CANCELLED = "CANCELLED", "Cancelled"  # job was cancelled by the business
+    PENDING = "PENDING", "قيد الانتظار"
+    OFFERED = "OFFERED", "تم تقديم عرض"
+    ACCEPTED = "ACCEPTED", "مقبول"
+    REJECTED = "REJECTED", "مرفوض"
+    WITHDRAWN = "WITHDRAWN", "مسحوب"
+    EXPIRED = "EXPIRED", "منتهي الصلاحية"
+    CANCELLED = "CANCELLED", "ملغى"  # job was cancelled by the business
 
 
 class JobListing(models.Model):

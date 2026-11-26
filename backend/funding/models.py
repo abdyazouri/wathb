@@ -5,19 +5,19 @@ from jobs.models import Currency
 
 
 class FundingProposalStatus(models.TextChoices):
-    PROPOSED = "PROPOSED", "Proposed"
-    PLEDGED = "PLEDGED", "Pledged"
-    APPROVED = "APPROVED", "Approved"
-    ACTIVE = "ACTIVE", "Active"
-    COMPLETED = "COMPLETED", "Completed"
-    CANCELLED = "CANCELLED", "Cancelled"
+    PROPOSED = "PROPOSED", "مقترَح"
+    PLEDGED = "PLEDGED", "تم التعهّد"
+    APPROVED = "APPROVED", "معتمَد"
+    ACTIVE = "ACTIVE", "نشط"
+    COMPLETED = "COMPLETED", "مكتمل"
+    CANCELLED = "CANCELLED", "ملغى"
 
 
 class FundingAllocationStatus(models.TextChoices):
-    RESERVED = "RESERVED", "Reserved"
-    ALLOCATED = "ALLOCATED", "Allocated"
-    RELEASED = "RELEASED", "Released"
-    SPENT = "SPENT", "Spent"
+    RESERVED = "RESERVED", "محجوز"
+    ALLOCATED = "ALLOCATED", "مخصَّص"
+    RELEASED = "RELEASED", "مُحرَّر"
+    SPENT = "SPENT", "مصروف"
 
 
 class FundingProposal(models.Model):

@@ -34,5 +34,5 @@ class DisputeCreateSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         assignment = attrs["assignment"]
         if assignment.worker != user and assignment.job.business.user != user:
-            raise serializers.ValidationError("You are not a party to this assignment.")
+            raise serializers.ValidationError("لست طرفاً في هذه المهمة.")
         return attrs

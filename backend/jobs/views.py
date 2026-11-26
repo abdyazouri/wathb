@@ -78,7 +78,7 @@ class JobDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         if instance.status != JobListingStatus.DRAFT:
             from rest_framework.exceptions import ValidationError
-            raise ValidationError("Only draft listings can be deleted.")
+            raise ValidationError("يمكن حذف المسودات فقط.")
         instance.delete()
 
 
@@ -90,11 +90,11 @@ class JobSubmitView(APIView):
         try:
             job = JobListing.objects.get(pk=pk, business__user=request.user)
         except JobListing.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if not job.can_transition_to(JobListingStatus.PENDING_REVIEW):
             return Response(
-                {"detail": f"Cannot submit a listing with status '{job.status}'."},
+                {"detail": f"لا يمكن إرسال وظيفة حالتها «{job.get_status_display()}» للمراجعة."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -110,11 +110,11 @@ class JobPublishView(APIView):
         try:
             job = JobListing.objects.get(pk=pk, business__user=request.user)
         except JobListing.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if not job.can_transition_to(JobListingStatus.PUBLISHED):
             return Response(
-                {"detail": f"Cannot publish a listing with status '{job.status}'."},
+                {"detail": f"لا يمكن نشر وظيفة حالتها «{job.get_status_display()}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -125,7 +125,7 @@ class JobPublishView(APIView):
             ).exists()
             if not has_allocation:
                 return Response(
-                    {"detail": "Funded job requires an approved funding allocation before publishing."},
+                    {"detail": "الوظيفة الممولة تحتاج تخصيص تمويل معتمد قبل النشر."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -145,22 +145,22 @@ class JobCancelView(APIView):
         elif user.role == Role.ADMIN:
             qs = JobListing.objects.filter(pk=pk)
         else:
-            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             job = qs.get()
         except JobListing.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if not job.can_transition_to(JobListingStatus.CANCELLED):
             return Response(
-                {"detail": f"Cannot cancel a listing with status '{job.status}'."},
+                {"detail": f"لا يمكن إلغاء وظيفة حالتها «{job.get_status_display()}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         reason = request.data.get("reason", "").strip()
         if not reason:
-            return Response({"detail": "reason is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يجب ذكر السبب."}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
             job.status = JobListingStatus.CANCELLED
@@ -203,7 +203,7 @@ class JobCloneView(APIView):
         try:
             original = JobListing.objects.get(pk=pk, business__user=request.user)
         except JobListing.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         clone = JobListing(
             business=original.business,
@@ -293,10 +293,10 @@ class JobApplyView(APIView):
         try:
             job = JobListing.objects.get(pk=pk, status=JobListingStatus.PUBLISHED)
         except JobListing.DoesNotExist:
-            return Response({"detail": "Job not found or not available."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "الوظيفة غير موجودة أو غير متاحة."}, status=status.HTTP_404_NOT_FOUND)
 
         if JobApplication.objects.filter(job=job, worker=request.user).exists():
-            return Response({"detail": "You have already applied to this job."}, status=status.HTTP_409_CONFLICT)
+            return Response({"detail": "لقد تقدّمت لهذه الوظيفة مسبقاً."}, status=status.HTTP_409_CONFLICT)
 
         app = JobApplication.objects.create(
             job=job,
@@ -317,12 +317,12 @@ class ApplicationActionView(APIView):
                 job = JobListing.objects.get(pk=pk, business__user=user)
                 app = JobApplication.objects.get(pk=app_id, job=job)
             except (JobListing.DoesNotExist, JobApplication.DoesNotExist):
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
             action_name = request.data.get("action")
             if action_name == "offer":
                 if app.status != ApplicationStatus.PENDING:
-                    return Response({"detail": "Application is not pending."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"detail": "الطلب ليس قيد الانتظار."}, status=status.HTTP_400_BAD_REQUEST)
                 with transaction.atomic():
                     app.status = ApplicationStatus.OFFERED
                     app.reviewed_at = timezone.now()
@@ -343,13 +343,13 @@ class ApplicationActionView(APIView):
                 _notify_worker(app.worker, "JOB_OFFER", job)
             elif action_name == "reject":
                 if app.status not in (ApplicationStatus.PENDING, ApplicationStatus.OFFERED):
-                    return Response({"detail": "Cannot reject at this stage."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"detail": "لا يمكن الرفض في هذه المرحلة."}, status=status.HTTP_400_BAD_REQUEST)
                 app.status = ApplicationStatus.REJECTED
                 app.reviewed_at = timezone.now()
                 app.save(update_fields=["status", "reviewed_at"])
                 _notify_worker(app.worker, "APPLICATION_REJECTED", job)
             else:
-                return Response({"detail": "action must be offer or reject."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "الإجراء غير صالح. الخيارات: offer أو reject."}, status=status.HTTP_400_BAD_REQUEST)
 
             return Response(JobApplicationSerializer(app).data)
 
@@ -357,28 +357,28 @@ class ApplicationActionView(APIView):
             try:
                 app = JobApplication.objects.get(pk=app_id, job__pk=pk, worker=user)
             except JobApplication.DoesNotExist:
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
             action_name = request.data.get("action")
             if action_name == "withdraw":
                 if app.status not in (ApplicationStatus.PENDING, ApplicationStatus.OFFERED):
-                    return Response({"detail": "Cannot withdraw at this stage."}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response({"detail": "لا يمكن سحب الطلب في هذه المرحلة."}, status=status.HTTP_400_BAD_REQUEST)
                 app.status = ApplicationStatus.WITHDRAWN
                 app.save(update_fields=["status"])
                 return Response(JobApplicationSerializer(app).data)
             else:
-                return Response({"detail": "Workers may only withdraw."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "يمكن للعامل سحب طلبه فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+        return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
 
     def delete(self, request, pk, app_id):
         try:
             app = JobApplication.objects.get(pk=app_id, job__pk=pk, worker=request.user)
         except JobApplication.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if app.status not in (ApplicationStatus.PENDING,):
-            return Response({"detail": "Cannot delete at this stage."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "لا يمكن الحذف في هذه المرحلة."}, status=status.HTTP_400_BAD_REQUEST)
         app.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

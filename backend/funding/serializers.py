@@ -36,7 +36,7 @@ class FundingProposalCreateSerializer(serializers.ModelSerializer):
 
     def validate_total_amount(self, value):
         if value <= 0:
-            raise serializers.ValidationError("Total amount must be positive.")
+            raise serializers.ValidationError("يجب أن يكون المبلغ الإجمالي أكبر من صفر.")
         return value
 
 

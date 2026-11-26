@@ -4,22 +4,22 @@ from django.conf import settings
 
 
 class DisputeCategory(models.TextChoices):
-    WORKER_NO_SHOW = "WORKER_NO_SHOW", "Worker Did Not Attend"
-    ATTENDANCE_DISPUTED = "ATTENDANCE_DISPUTED", "Attendance Disputed"
-    WORK_INCOMPLETE = "WORK_INCOMPLETE", "Work Was Incomplete"
-    WAGE_DISPUTED = "WAGE_DISPUTED", "Wage Amount Disputed"
-    PAYMENT_NOT_RECEIVED = "PAYMENT_NOT_RECEIVED", "Payment Not Received"
-    EVIDENCE_INSUFFICIENT = "EVIDENCE_INSUFFICIENT", "Payment Evidence Insufficient"
-    CONDITIONS_CHANGED = "CONDITIONS_CHANGED", "Job Conditions Changed"
-    CANCELLATION = "CANCELLATION", "Cancellation Issue"
-    OTHER = "OTHER", "Other"
+    WORKER_NO_SHOW = "WORKER_NO_SHOW", "العامل لم يحضر"
+    ATTENDANCE_DISPUTED = "ATTENDANCE_DISPUTED", "خلاف على الحضور"
+    WORK_INCOMPLETE = "WORK_INCOMPLETE", "العمل غير مكتمل"
+    WAGE_DISPUTED = "WAGE_DISPUTED", "خلاف على مبلغ الأجر"
+    PAYMENT_NOT_RECEIVED = "PAYMENT_NOT_RECEIVED", "لم يُستلَم الأجر"
+    EVIDENCE_INSUFFICIENT = "EVIDENCE_INSUFFICIENT", "إثبات الدفع غير كافٍ"
+    CONDITIONS_CHANGED = "CONDITIONS_CHANGED", "تغيّرت شروط العمل"
+    CANCELLATION = "CANCELLATION", "مشكلة في الإلغاء"
+    OTHER = "OTHER", "أخرى"
 
 
 class DisputeStatus(models.TextChoices):
-    OPEN = "OPEN", "Open"
-    IN_REVIEW = "IN_REVIEW", "In Review"
-    RESOLVED = "RESOLVED", "Resolved"
-    CLOSED = "CLOSED", "Closed"
+    OPEN = "OPEN", "مفتوح"
+    IN_REVIEW = "IN_REVIEW", "قيد المراجعة"
+    RESOLVED = "RESOLVED", "تم الحل"
+    CLOSED = "CLOSED", "مغلق"
 
 
 class Dispute(models.Model):

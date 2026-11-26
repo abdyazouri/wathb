@@ -262,7 +262,7 @@ class AdminAllocateFundingTests(APITestCase):
         data = {"job_listing_id": str(self.job.pk), "amount": 600_000}
         response = self.client.post(self._url(), data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Insufficient", response.data["detail"])
+        self.assertIn("الميزانية غير كافية", response.data["detail"])
         self.budget.refresh_from_db()
         self.assertEqual(self.budget.reserved_amount, 0)
 

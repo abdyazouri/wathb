@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from accounts.models import Role, WorkerProfile
+from accounts.models import Role, User, WorkerProfile
 from accounts.permissions import IsWorker, IsBusiness, IsAdminRole
 from accounts.serializers import (
     PhoneTokenObtainPairSerializer,
@@ -102,6 +102,8 @@ class MeView(APIView):
                 updates["phone"] = normalize_phone(updates["phone"])
             except ValueError as exc:
                 return Response({"phone": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            if User.objects.filter(phone=updates["phone"]).exclude(pk=user.pk).exists():
+                return Response({"phone": "رقم الهاتف هذا مسجّل مسبقاً."}, status=status.HTTP_400_BAD_REQUEST)
         for field, value in updates.items():
             setattr(user, field, value)
         user.save(update_fields=list(updates.keys()))
@@ -145,7 +147,7 @@ class AdminBusinessVerifyView(APIView):
         try:
             bp = BusinessProfile.objects.select_related("user").get(pk=pk)
         except BusinessProfile.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         action = request.data.get("action")
         reason = request.data.get("reason", "")
@@ -166,7 +168,7 @@ class AdminBusinessVerifyView(APIView):
             _log_audit(request.user, "business_rejected", "BusinessProfile", str(bp.pk), {"reason": reason})
         elif action == "suspend":
             if not reason:
-                return Response({"detail": "Reason required for suspension."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "يجب ذكر سبب الإيقاف."}, status=status.HTTP_400_BAD_REQUEST)
             bp.verification_status = "SUSPENDED"
             bp.suspension_reason = reason
             bp.save()
@@ -174,7 +176,7 @@ class AdminBusinessVerifyView(APIView):
             bp.user.save(update_fields=["is_verified"])
             _log_audit(request.user, "business_suspended", "BusinessProfile", str(bp.pk), {"reason": reason})
         else:
-            return Response({"detail": "action must be approve, reject, or suspend."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "الإجراء غير صالح. الخيارات: approve أو reject أو suspend."}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(AdminBusinessProfileSerializer(bp).data)
 
@@ -204,7 +206,7 @@ class AdminWorkerVerifyView(APIView):
         try:
             wp = WorkerProfile.objects.select_related("user").get(pk=pk)
         except WorkerProfile.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         action = request.data.get("action")
 
@@ -218,7 +220,7 @@ class AdminWorkerVerifyView(APIView):
             _log_audit(request.user, "worker_suspended", "WorkerProfile", str(wp.pk))
         else:
             return Response(
-                {"detail": "action must be verify or suspend."},
+                {"detail": "الإجراء غير صالح. الخيارات: verify أو suspend."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

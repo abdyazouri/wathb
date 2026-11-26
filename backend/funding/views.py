@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from yawmiyati.money import format_money
+
 from accounts.models import Role
 from accounts.permissions import IsFunder, IsAdminRole
 from funding.models import FundingProposal, FundingBudget, FundingProposalStatus
@@ -75,11 +77,11 @@ class AdminApproveFundingView(APIView):
         try:
             proposal = FundingProposal.objects.select_for_update().get(pk=pk)
         except FundingProposal.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if proposal.status not in (FundingProposalStatus.PROPOSED, FundingProposalStatus.PLEDGED):
             return Response(
-                {"detail": f"Cannot approve a proposal with status '{proposal.status}'."},
+                {"detail": f"لا يمكن اعتماد مقترح حالته «{proposal.get_status_display()}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -107,14 +109,14 @@ class AdminRejectFundingView(APIView):
         try:
             proposal = FundingProposal.objects.get(pk=pk)
         except FundingProposal.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         reason = request.data.get("reason", "")
         if not reason:
-            return Response({"detail": "reason is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يجب ذكر السبب."}, status=status.HTTP_400_BAD_REQUEST)
 
         if proposal.status in (FundingProposalStatus.APPROVED, FundingProposalStatus.ACTIVE, FundingProposalStatus.COMPLETED):
-            return Response({"detail": "Cannot reject an already-approved proposal."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "لا يمكن رفض مقترح معتمَد."}, status=status.HTTP_400_BAD_REQUEST)
 
         proposal.status = FundingProposalStatus.CANCELLED
         proposal.rejection_reason = reason
@@ -136,38 +138,38 @@ class AdminAllocateFundingView(APIView):
         try:
             budget = FundingBudget.objects.select_for_update().get(proposal__pk=pk)
         except FundingBudget.DoesNotExist:
-            return Response({"detail": "Budget not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "الميزانية غير موجودة."}, status=status.HTTP_404_NOT_FOUND)
 
         if budget.proposal.status != FundingProposalStatus.APPROVED:
-            return Response({"detail": "Can only allocate from approved proposals."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن التخصيص من المقترحات المعتمدة فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         job_listing_id = request.data.get("job_listing_id")
         amount = request.data.get("amount")
 
         if not job_listing_id or amount is None:
-            return Response({"detail": "job_listing_id and amount are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يجب إرسال job_listing_id والمبلغ (amount)."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             amount = int(amount)
         except (TypeError, ValueError):
-            return Response({"detail": "amount must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يجب أن يكون المبلغ رقماً صحيحاً."}, status=status.HTTP_400_BAD_REQUEST)
 
         if amount <= 0:
-            return Response({"detail": "amount must be positive."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يجب أن يكون المبلغ أكبر من صفر."}, status=status.HTTP_400_BAD_REQUEST)
 
         if amount > budget.available_amount:
             return Response(
-                {"detail": f"Insufficient budget. Available: {budget.available_amount}, requested: {amount}."},
+                {"detail": f"الميزانية غير كافية. المتاح: {format_money(budget.available_amount)}، المطلوب: {format_money(amount)}."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
             job = JobListing.objects.get(pk=job_listing_id)
         except JobListing.DoesNotExist:
-            return Response({"detail": "Job listing not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "الوظيفة غير موجودة."}, status=status.HTTP_404_NOT_FOUND)
 
         if FundingAllocation.objects.filter(job_listing=job).exists():
-            return Response({"detail": "This job already has a funding allocation."}, status=status.HTTP_409_CONFLICT)
+            return Response({"detail": "لهذه الوظيفة تخصيص تمويل مسبق."}, status=status.HTTP_409_CONFLICT)
 
         allocation = FundingAllocation.objects.create(
             budget=budget,

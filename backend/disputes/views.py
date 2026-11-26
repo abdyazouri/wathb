@@ -78,10 +78,10 @@ class AdminDisputeAssignView(APIView):
         try:
             dispute = Dispute.objects.get(pk=pk)
         except Dispute.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if dispute.status not in (DisputeStatus.OPEN,):
-            return Response({"detail": "Can only assign an open dispute."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن إسناد النزاعات المفتوحة فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         dispute.assigned_to = request.user
         dispute.status = DisputeStatus.IN_REVIEW
@@ -91,7 +91,7 @@ class AdminDisputeAssignView(APIView):
             dispute=dispute,
             actor=request.user,
             action="assigned",
-            notes=f"Assigned to {request.user.email}",
+            notes="أُسند النزاع إلى مشرف للمراجعة.",
         )
         return Response(DisputeSerializer(dispute).data)
 
@@ -103,14 +103,14 @@ class AdminDisputeResolveView(APIView):
         try:
             dispute = Dispute.objects.get(pk=pk)
         except Dispute.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if dispute.status not in (DisputeStatus.OPEN, DisputeStatus.IN_REVIEW):
-            return Response({"detail": "Can only resolve open or in-review disputes."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يمكن حل النزاعات المفتوحة أو قيد المراجعة فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
         resolution_notes = request.data.get("resolution_notes", "")
         if not resolution_notes:
-            return Response({"detail": "resolution_notes is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يجب كتابة ملاحظات الحل."}, status=status.HTTP_400_BAD_REQUEST)
 
         dispute.status = DisputeStatus.RESOLVED
         dispute.resolved_at = timezone.now()

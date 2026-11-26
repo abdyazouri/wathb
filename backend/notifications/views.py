@@ -95,7 +95,7 @@ class NotificationMarkReadView(APIView):
         try:
             n = Notification.objects.get(pk=pk, recipient=request.user)
         except Notification.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
         n.is_read = True
         n.save(update_fields=["is_read"])
         return Response(NotificationSerializer(n).data)
@@ -106,4 +106,4 @@ class NotificationMarkAllReadView(APIView):
 
     def post(self, request):
         Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
-        return Response({"detail": "All notifications marked as read."})
+        return Response({"detail": "تم تعليم كل الإشعارات كمقروءة."})

@@ -41,7 +41,12 @@ class RegisterSerializer(serializers.ModelSerializer):
             "phone", "email", "password", "role", "consent_version",
             "full_name", "legal_name", "contact_name", "contact_phone",
         ]
-        extra_kwargs = {"email": {"required": False, "allow_null": True}}
+        # Uniqueness is checked in validate_phone/validate_email with Arabic messages;
+        # the auto-generated validators would say "User with this email already exists."
+        extra_kwargs = {
+            "phone": {"validators": []},
+            "email": {"required": False, "allow_null": True, "validators": []},
+        }
 
     def validate_phone(self, value):
         normalized = _normalize(value)
@@ -52,6 +57,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         if value == "":
             return None
+        if value and User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("البريد الإلكتروني هذا مسجّل مسبقاً.")
         return value
 
     def validate_consent_version(self, value):
@@ -64,16 +71,16 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         role = attrs.get("role")
         if role == Role.WORKER and not attrs.get("full_name"):
-            raise serializers.ValidationError({"full_name": "Required for workers."})
+            raise serializers.ValidationError({"full_name": "الاسم الكامل مطلوب للعمال."})
         if role == Role.BUSINESS and not attrs.get("legal_name"):
-            raise serializers.ValidationError({"legal_name": "Required for businesses."})
+            raise serializers.ValidationError({"legal_name": "الاسم التجاري مطلوب للمنشآت."})
         if role == Role.BUSINESS and not attrs.get("contact_name"):
-            raise serializers.ValidationError({"contact_name": "Required for businesses."})
+            raise serializers.ValidationError({"contact_name": "اسم المسؤول مطلوب للمنشآت."})
         if role == Role.BUSINESS and not attrs.get("contact_phone"):
-            raise serializers.ValidationError({"contact_phone": "Required for businesses."})
+            raise serializers.ValidationError({"contact_phone": "هاتف المسؤول مطلوب للمنشآت."})
         if role not in (Role.WORKER, Role.BUSINESS):
             raise serializers.ValidationError(
-                {"role": "Self-registration is only available for workers and businesses."}
+                {"role": "التسجيل متاح للعمال والمنشآت فقط."}
             )
         return attrs
 

@@ -276,7 +276,7 @@ class CompletionTests(APITestCase):
         self.client.force_authenticate(user=self.worker)
         response = self.client.patch(reverse("completion-confirm", args=[self.assignment.pk]))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Cannot confirm your own", response.data["detail"])
+        self.assertIn("لا يمكنك تأكيد إتمام سجّلته أنت", response.data["detail"])
 
     def test_business_cannot_confirm_own_completion_submission(self):
         CompletionRecord.objects.create(
@@ -536,6 +536,18 @@ class BusinessCompleteTests(APITestCase):
         declaration = PaymentDeclaration.objects.get(wage_obligation__assignment=self.assignment)
         self.assertEqual(declaration.payment_method, "PALPAY")
         self.assertEqual(declaration.currency, "ILS")
+
+    def test_complete_notification_shows_shekels_not_agorot(self):
+        from notifications.models import Notification
+        self.job.work_date = datetime.date.today()
+        self.job.save(update_fields=["work_date"])
+        self.client.force_authenticate(user=self.biz_user)
+        self.client.post(reverse("business-complete-assignment", args=[self.assignment.pk]))
+        note = Notification.objects.get(recipient=self.worker, notification_type="PAYMENT_DECLARED")
+        amount = WageObligation.objects.get(assignment=self.assignment).amount
+        from yawmiyati.money import format_money
+        self.assertIn(format_money(amount), note.body)
+        self.assertNotIn("ILS", note.body)
 
     def test_cannot_complete_before_work_date(self):
         self.job.work_date = datetime.date.today() + datetime.timedelta(days=1)

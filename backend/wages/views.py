@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
 
+from yawmiyati.money import format_money, to_arabic_indic
+
 from accounts.models import Role
 from accounts.permissions import IsWorker, IsBusiness, IsAdminRole
 from wages.models import (
@@ -72,11 +74,11 @@ class DeclarePaymentView(APIView):
                 pk=pk, assignment__job__business__user=request.user
             )
         except WageObligation.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if obligation.status not in (WageObligationStatus.PENDING, WageObligationStatus.DUE, WageObligationStatus.REJECTED):
             return Response(
-                {"detail": f"Cannot declare payment for obligation with status '{obligation.status}'."},
+                {"detail": f"لا يمكن الإعلان عن الدفع لأجر حالته «{obligation.get_status_display()}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -109,11 +111,11 @@ class AcknowledgePaymentView(APIView):
                 pk=pk, assignment__worker=request.user
             )
         except WageObligation.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if obligation.status != WageObligationStatus.AWAITING_ACK:
             return Response(
-                {"detail": "No pending declaration to acknowledge."},
+                {"detail": "لا يوجد إعلان دفع بانتظار إقرارك."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -139,11 +141,11 @@ class DisputePaymentView(APIView):
         try:
             obligation = WageObligation.objects.get(pk=pk, assignment__worker=request.user)
         except WageObligation.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if obligation.status != WageObligationStatus.AWAITING_ACK:
             return Response(
-                {"detail": "Nothing to dispute at this stage."},
+                {"detail": "لا يوجد ما يمكن الاعتراض عليه في هذه المرحلة."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -178,15 +180,15 @@ class UploadEvidenceView(APIView):
             obligation = WageObligation.objects.get(pk=pk, assignment__job__business__user=request.user)
             declaration = obligation.declarations.get(pk=dec_id)
         except (WageObligation.DoesNotExist, PaymentDeclaration.DoesNotExist):
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         uploaded_file = request.FILES.get("file")
         if not uploaded_file:
-            return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "لم يتم إرفاق ملف."}, status=status.HTTP_400_BAD_REQUEST)
 
         if uploaded_file.size > settings.MAX_UPLOAD_SIZE_BYTES:
             return Response(
-                {"detail": f"File size exceeds {settings.MAX_UPLOAD_SIZE_BYTES // 1024 // 1024} MB limit."},
+                {"detail": f"حجم الملف يتجاوز الحد المسموح ({to_arabic_indic(settings.MAX_UPLOAD_SIZE_BYTES // 1024 // 1024)} ميغابايت)."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -200,7 +202,7 @@ class UploadEvidenceView(APIView):
 
         if detected_type not in settings.ALLOWED_UPLOAD_CONTENT_TYPES:
             return Response(
-                {"detail": f"File type '{detected_type}' is not allowed. Allowed: {settings.ALLOWED_UPLOAD_CONTENT_TYPES}"},
+                {"detail": "نوع الملف غير مسموح. الأنواع المسموحة: صورة JPEG أو PNG أو ملف PDF."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -225,12 +227,12 @@ class EvidenceFileView(APIView):
             declaration = obligation.declarations.get(pk=dec_id)
             evidence = declaration.evidence_files.get(pk=ev_id)
         except (WageObligation.DoesNotExist, PaymentDeclaration.DoesNotExist, PaymentEvidence.DoesNotExist):
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if user.role == Role.WORKER and obligation.assignment.worker != user:
-            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
         elif user.role == Role.BUSINESS and obligation.assignment.job.business.user != user:
-            return Response({"detail": "Forbidden."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
 
         return FileResponse(evidence.file.open("rb"), content_type=evidence.content_type)
 
@@ -245,7 +247,7 @@ class AdminVerifyPaymentView(APIView):
             obligation = WageObligation.objects.select_for_update().get(pk=pk)
             declaration = obligation.declarations.select_for_update().get(pk=dec_id)
         except (WageObligation.DoesNotExist, PaymentDeclaration.DoesNotExist):
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         action_name = request.data.get("action")
         review_notes = request.data.get("review_notes", "")
@@ -256,7 +258,7 @@ class AdminVerifyPaymentView(APIView):
                 PaymentDeclarationStatus.ACKNOWLEDGED,
             ):
                 return Response(
-                    {"detail": f"Cannot verify a declaration with status '{declaration.status}'."},
+                    {"detail": f"لا يمكن التحقق من إعلان دفع حالته «{declaration.get_status_display()}»."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             declaration.status = PaymentDeclarationStatus.VERIFIED
@@ -273,7 +275,7 @@ class AdminVerifyPaymentView(APIView):
 
         elif action_name == "reject":
             if not review_notes:
-                return Response({"detail": "review_notes required when rejecting."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "يجب كتابة ملاحظات المراجعة (review_notes) عند الرفض."}, status=status.HTTP_400_BAD_REQUEST)
             declaration.status = PaymentDeclarationStatus.REJECTED
             declaration.reviewed_by = request.user
             declaration.reviewed_at = timezone.now()
@@ -287,7 +289,7 @@ class AdminVerifyPaymentView(APIView):
             _notify_worker(obligation.assignment.worker, "PAYMENT_REJECTED", obligation)
 
         else:
-            return Response({"detail": "action must be verify or reject."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "الإجراء غير صالح. الخيارات: verify أو reject."}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(PaymentDeclarationSerializer(declaration).data)
 
@@ -305,16 +307,16 @@ def _detect_mime_from_bytes(data):
 def _notify_worker(worker, notification_type, obligation):
     try:
         from notifications.models import Notification
-        amount = obligation.amount // 100
+        amount = format_money(obligation.amount)
         titles = {
             "PAYMENT_DECLARED": "تم الإعلان عن دفع أجرك",
             "PAYMENT_VERIFIED": "تم التحقق من دفع أجرك",
             "PAYMENT_REJECTED": "تم رفض إعلان الدفع",
         }
         bodies = {
-            "PAYMENT_DECLARED": f"أعلن صاحب العمل عن دفع {amount} {obligation.currency}. الرجاء تأكيد الاستلام.",
-            "PAYMENT_VERIFIED": f"تم التحقق من دفع {amount} {obligation.currency}.",
-            "PAYMENT_REJECTED": f"رفض المسؤول إعلان دفع {amount} {obligation.currency}. سيتواصل معك.",
+            "PAYMENT_DECLARED": f"أعلن صاحب العمل عن دفع {amount}. الرجاء تأكيد الاستلام.",
+            "PAYMENT_VERIFIED": f"تم التحقق من دفع {amount}.",
+            "PAYMENT_REJECTED": f"رفض المسؤول إعلان دفع {amount}. سيتواصل معك.",
         }
         Notification.objects.create(
             recipient=worker,
@@ -352,20 +354,20 @@ class AdminPhoneResolveView(APIView):
 
         if action not in ("confirmed_by_phone", "disputed_by_phone"):
             return Response(
-                {"detail": "action must be 'confirmed_by_phone' or 'disputed_by_phone'."},
+                {"detail": "الإجراء غير صالح. الخيارات: confirmed_by_phone أو disputed_by_phone."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         if not notes:
-            return Response({"detail": "notes are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "يجب كتابة الملاحظات."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             obligation = WageObligation.objects.select_for_update().get(pk=pk)
         except WageObligation.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
 
         if obligation.status != WageObligationStatus.AWAITING_ACK:
             return Response(
-                {"detail": "Obligation is not in AWAITING_ACK state."},
+                {"detail": "الأجر ليس بانتظار إقرار العامل."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -375,7 +377,7 @@ class AdminPhoneResolveView(APIView):
 
         if not declaration:
             return Response(
-                {"detail": "No SUBMITTED declaration found."},
+                {"detail": "لا يوجد إعلان دفع بانتظار إقرار العامل."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -384,7 +386,7 @@ class AdminPhoneResolveView(APIView):
                 declaration.status = PaymentDeclarationStatus.VERIFIED
                 declaration.reviewed_by = request.user
                 declaration.reviewed_at = timezone.now()
-                declaration.review_notes = f"[admin phone confirmation] {notes}"
+                declaration.review_notes = f"[تأكيد هاتفي عبر المشرف] {notes}"
                 declaration.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes"])
                 obligation.status = WageObligationStatus.VERIFIED_PAID
                 obligation.save(update_fields=["status"])
@@ -396,7 +398,7 @@ class AdminPhoneResolveView(APIView):
                 declaration.status = PaymentDeclarationStatus.DISPUTED
                 declaration.reviewed_by = request.user
                 declaration.reviewed_at = timezone.now()
-                declaration.review_notes = f"[admin phone dispute] {notes}"
+                declaration.review_notes = f"[اعتراض هاتفي عبر المشرف] {notes}"
                 declaration.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes"])
                 obligation.status = WageObligationStatus.DISPUTED
                 obligation.save(update_fields=["status"])
@@ -405,7 +407,7 @@ class AdminPhoneResolveView(APIView):
                     assignment=obligation.assignment,
                     wage_obligation=obligation,
                     category="PAYMENT_NOT_RECEIVED",
-                    description=f"[admin phone dispute] {notes}",
+                    description=f"[اعتراض هاتفي عبر المشرف] {notes}",
                 )
                 _log_audit(
                     request.user, "admin_phone_disputed", "WageObligation",

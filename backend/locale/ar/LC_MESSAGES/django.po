@@ -1,0 +1,40 @@
+# Arabic strings missing from the built-in Django REST framework and
+# SimpleJWT 'ar' catalogs. Compile with: msgfmt -o django.mo django.po
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: ar\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+msgid "Invalid input."
+msgstr "مدخلات غير صالحة."
+
+msgid "This field may not be null."
+msgstr "لا يمكن ترك هذا الحقل فارغاً."
+
+msgid "Must be a valid boolean."
+msgstr "يجب أن تكون القيمة صحيحة أو خاطئة."
+
+msgid "Not a valid string."
+msgstr "ليست نصاً صالحاً."
+
+msgid "Must be a valid UUID."
+msgstr "يجب أن يكون معرّفاً (UUID) صالحاً."
+
+msgid "This dictionary may not be empty."
+msgstr "لا يمكن أن يكون هذا الحقل فارغاً."
+
+msgid "Ensure this field has no more than {max_length} elements."
+msgstr "تأكد أن هذا الحقل لا يحتوي أكثر من {max_length} عناصر."
+
+msgid "Ensure this field has at least {min_length} elements."
+msgstr "تأكد أن هذا الحقل يحتوي {min_length} عناصر على الأقل."
+
+msgid "Invalid datetime for the timezone \"{timezone}\"."
+msgstr "التاريخ والوقت غير صالحين في المنطقة الزمنية \"{timezone}\"."
+
+msgid "Datetime value out of range."
+msgstr "قيمة التاريخ والوقت خارج النطاق المسموح."
+
+msgid "The user's password has been changed."
+msgstr "تم تغيير كلمة المرور. الرجاء تسجيل الدخول من جديد."

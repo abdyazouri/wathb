@@ -85,7 +85,7 @@ class JobStateMachineTests(APITestCase):
     def test_publish_draft_job_returns_400(self):
         response = self.client.post(reverse("job-publish", args=[self.job.pk]))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("Cannot publish", response.data["detail"])
+        self.assertIn("لا يمكن نشر وظيفة حالتها «مسودة»", response.data["detail"])
 
     def test_publish_pending_review_job_succeeds(self):
         self.job.status = JobListingStatus.PENDING_REVIEW
@@ -161,7 +161,7 @@ class FundedJobPublishTests(APITestCase):
         self.client.force_authenticate(user=self.biz_user)
         response = self.client.post(reverse("job-publish", args=[job.pk]))
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("allocation", response.data["detail"].lower())
+        self.assertIn("تخصيص تمويل", response.data["detail"])
 
     def test_funded_job_with_active_allocation_can_publish(self):
         job = make_job(self.biz_profile, is_funded=True, status=JobListingStatus.PENDING_REVIEW)

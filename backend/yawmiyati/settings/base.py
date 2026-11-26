@@ -39,6 +39,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "yawmiyati.middleware.ApiArabicLocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -94,6 +95,8 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "ar"
 TIME_ZONE = "Asia/Gaza"
 USE_I18N = True
+# Project 'ar' catalog: fills the few gaps in DRF/SimpleJWT's built-in Arabic.
+LOCALE_PATHS = [BASE_DIR / "locale"]
 USE_TZ = True
 
 STATIC_URL = "/static/"

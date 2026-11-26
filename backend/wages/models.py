@@ -6,23 +6,23 @@ from jobs.models import Currency, PaymentMethod  # noqa: F401 — re-exported fo
 
 
 class WageObligationStatus(models.TextChoices):
-    PENDING = "PENDING", "Pending"
-    DUE = "DUE", "Due"
-    DECLARED = "DECLARED", "Payment Declared"
-    AWAITING_ACK = "AWAITING_ACK", "Awaiting Worker Acknowledgement"
-    UNDER_REVIEW = "UNDER_REVIEW", "Under Review"
-    DISPUTED = "DISPUTED", "Disputed"
-    VERIFIED_PAID = "VERIFIED_PAID", "Verified Paid"
-    REJECTED = "REJECTED", "Declaration Rejected"
-    CANCELLED = "CANCELLED", "Cancelled"
+    PENDING = "PENDING", "قيد الانتظار"
+    DUE = "DUE", "مستحق"
+    DECLARED = "DECLARED", "تم الإعلان عن الدفع"
+    AWAITING_ACK = "AWAITING_ACK", "بانتظار إقرار العامل"
+    UNDER_REVIEW = "UNDER_REVIEW", "قيد المراجعة"
+    DISPUTED = "DISPUTED", "متنازَع عليه"
+    VERIFIED_PAID = "VERIFIED_PAID", "مدفوع ومؤكَّد"
+    REJECTED = "REJECTED", "رُفض إعلان الدفع"
+    CANCELLED = "CANCELLED", "ملغى"
 
 
 class PaymentDeclarationStatus(models.TextChoices):
-    SUBMITTED = "SUBMITTED", "Submitted"
-    ACKNOWLEDGED = "ACKNOWLEDGED", "Acknowledged by Worker"
-    DISPUTED = "DISPUTED", "Disputed by Worker"
-    VERIFIED = "VERIFIED", "Verified by Staff"
-    REJECTED = "REJECTED", "Rejected by Staff"
+    SUBMITTED = "SUBMITTED", "بانتظار إقرار العامل"
+    ACKNOWLEDGED = "ACKNOWLEDGED", "أقرّ به العامل"
+    DISPUTED = "DISPUTED", "اعترض عليه العامل"
+    VERIFIED = "VERIFIED", "تحقّق منه المشرف"
+    REJECTED = "REJECTED", "رفضه المشرف"
 
 
 class WageObligation(models.Model):

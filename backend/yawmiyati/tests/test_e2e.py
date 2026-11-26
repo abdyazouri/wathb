@@ -266,7 +266,7 @@ class ScenarioCFundedJob(APITestCase):
         self.client.force_authenticate(user=self.biz_user)
         r = self.client.post(reverse("job-publish", args=[job.pk]))
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("allocation", r.data["detail"].lower())
+        self.assertIn("تخصيص تمويل", r.data["detail"])
 
         # Step 5: Create allocation directly (admin/funder sets this up)
         FundingAllocation.objects.create(
@@ -295,7 +295,7 @@ class ScenarioDInsufficientFunding(APITestCase):
         self.client.force_authenticate(user=self.biz_user)
         r = self.client.post(reverse("job-publish", args=[job.pk]))
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("allocation", r.data["detail"].lower())
+        self.assertIn("تخصيص تمويل", r.data["detail"])
         job.refresh_from_db()
         self.assertEqual(job.status, JobListingStatus.PENDING_REVIEW)
 

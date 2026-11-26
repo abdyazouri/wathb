@@ -351,7 +351,7 @@ class FileUploadValidationTests(APITestCase):
         self.client.force_authenticate(user=self.biz_user)
         response = self.client.post(self._upload_url(), {"file": f}, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("not allowed", response.data["detail"])
+        self.assertIn("نوع الملف غير مسموح", response.data["detail"])
 
     def test_upload_oversized_file_rejected(self):
         from django.conf import settings
@@ -361,7 +361,7 @@ class FileUploadValidationTests(APITestCase):
         self.client.force_authenticate(user=self.biz_user)
         response = self.client.post(self._upload_url(), {"file": f}, format="multipart")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("size", response.data["detail"].lower())
+        self.assertIn("حجم الملف", response.data["detail"])
 
     def test_worker_cannot_upload_evidence(self):
         f = io.BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 100)

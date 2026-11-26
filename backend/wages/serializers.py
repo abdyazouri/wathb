@@ -53,7 +53,7 @@ class PaymentDeclarationCreateSerializer(serializers.ModelSerializer):
 
     def validate_declared_amount(self, value):
         if value <= 0:
-            raise serializers.ValidationError("Declared amount must be positive.")
+            raise serializers.ValidationError("يجب أن يكون المبلغ المُعلَن أكبر من صفر.")
         return value
 
 

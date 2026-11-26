@@ -4,10 +4,10 @@ from django.db import models
 
 
 class Role(models.TextChoices):
-    WORKER = "WORKER", "Worker"
-    BUSINESS = "BUSINESS", "Business"
-    FUNDER = "FUNDER", "Funder"
-    ADMIN = "ADMIN", "Admin"
+    WORKER = "WORKER", "عامل"
+    BUSINESS = "BUSINESS", "منشأة"
+    FUNDER = "FUNDER", "جهة مموِّلة"
+    ADMIN = "ADMIN", "مشرف"
 
 
 class UserManager(BaseUserManager):
@@ -58,10 +58,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class VerificationStatus(models.TextChoices):
-    PENDING = "PENDING", "Pending"
-    APPROVED = "APPROVED", "Approved"
-    REJECTED = "REJECTED", "Rejected"
-    SUSPENDED = "SUSPENDED", "Suspended"
+    PENDING = "PENDING", "قيد المراجعة"
+    APPROVED = "APPROVED", "موثَّقة"
+    REJECTED = "REJECTED", "مرفوضة"
+    SUSPENDED = "SUSPENDED", "موقوفة"
 
 
 class WorkerProfile(models.Model):
