@@ -35,6 +35,9 @@ fun formatArabicDate(isoDate: String): String {
 /** "07:00:00" or "07:00" → "٠٧:٠٠" */
 fun formatArabicTime(isoTime: String): String = isoTime.take(5).toArabicNumerals()
 
+/** "250 ILS" from server → "٢٥٠ ₪" */
+fun String.toArabicAmountDisplay(): String = replace("ILS", "₪").toArabicNumerals()
+
 /** wage_amount (minor units) → "٢٥٠ ₪ / يوم" */
 fun formatArabicWage(minorUnits: Long, currency: String, basis: String): String {
     val major = (minorUnits / 100).toArabic()

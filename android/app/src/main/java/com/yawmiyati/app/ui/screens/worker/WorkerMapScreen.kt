@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.yawmiyati.app.ui.components.EmptyState
 import com.yawmiyati.app.ui.components.JobMapMarker
 import com.yawmiyati.app.ui.components.OsmMapView
 import com.yawmiyati.app.ui.theme.WathbDeepTeal
@@ -170,6 +171,13 @@ fun WorkerMapScreen(
 
     Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+
+            if (jobs.isEmpty() && jobsState !is JobsUiState.Loading) {
+                EmptyState(
+                    message = "لا توجد وظائف متاحة على الخريطة",
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             OsmMapView(
                 lat = workerLat ?: GAZA_LAT,

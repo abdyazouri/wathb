@@ -45,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yawmiyati.app.ui.components.ConfirmCancelDialog
 import com.yawmiyati.app.viewmodels.WorkerAssignmentActionState
 import com.yawmiyati.app.viewmodels.WorkerAssignmentDetailViewModel
+import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -207,14 +208,15 @@ fun WorkerAssignmentDetailScreen(
                             if (wage != null && wage.status == "AWAITING_ACK") {
                                 Text("تأكيد استلام الأجر", style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    wage.amountDisplay,
+                                    wage.amountDisplay.toArabicAmountDisplay(),
                                     style = MaterialTheme.typography.headlineSmall,
                                     color = MaterialTheme.colorScheme.primary
                                 )
                                 val methodLabel = when (wage.declarations.firstOrNull()?.paymentMethod) {
-                                    "CASH" -> "الدفع نقداً"
-                                    "BANK_TRANSFER" -> "تحويل بنكي"
-                                    else -> ""
+                                    "JAWWAL_PAY"       -> "جوال باي"
+                                    "PALPAY"           -> "بال باي"
+                                    "BANK_OF_PALESTINE" -> "بنك فلسطين"
+                                    else               -> ""
                                 }
                                 if (methodLabel.isNotBlank()) {
                                     Text(

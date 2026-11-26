@@ -49,6 +49,8 @@ import com.yawmiyati.app.ui.components.LoadingIndicator
 import com.yawmiyati.app.viewmodels.WageActionState
 import com.yawmiyati.app.viewmodels.WagesUiState
 import com.yawmiyati.app.viewmodels.WagesViewModel
+import com.yawmiyati.app.ui.utils.formatArabicDate
+import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -166,12 +168,12 @@ private fun WageObligationCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = obligation.amountDisplay,
+                text = obligation.amountDisplay.toArabicAmountDisplay(),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "تاريخ الاستحقاق: ${obligation.dueDate}",
+                text = "تاريخ الاستحقاق: ${formatArabicDate(obligation.dueDate)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -194,8 +196,8 @@ private fun DeclarePaymentDialog(
     onDismiss: () -> Unit,
     onConfirm: (amount: Long, method: String, date: String, ref: String) -> Unit
 ) {
-    val paymentMethods = listOf("CASH" to "نقداً", "BANK_TRANSFER" to "تحويل بنكي", "OTHER" to "طريقة أخرى")
-    var selectedMethod by rememberSaveable { mutableStateOf("CASH") }
+    val paymentMethods = listOf("JAWWAL_PAY" to "جوال باي", "PALPAY" to "بال باي", "BANK_OF_PALESTINE" to "بنك فلسطين")
+    var selectedMethod by rememberSaveable { mutableStateOf("JAWWAL_PAY") }
     var transactionRef by rememberSaveable { mutableStateOf("") }
     val today = LocalDate.now().toString()
 
@@ -205,7 +207,7 @@ private fun DeclarePaymentDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "المبلغ: ${obligation.amountDisplay}",
+                    "المبلغ: ${obligation.amountDisplay.toArabicAmountDisplay()}",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text("طريقة الدفع:", style = MaterialTheme.typography.labelMedium)
@@ -221,14 +223,12 @@ private fun DeclarePaymentDialog(
                         Text(label, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                if (selectedMethod == "BANK_TRANSFER") {
-                    OutlinedTextField(
-                        value = transactionRef,
-                        onValueChange = { transactionRef = it },
-                        label = { Text("رقم المرجع / التحويل") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                OutlinedTextField(
+                    value = transactionRef,
+                    onValueChange = { transactionRef = it },
+                    label = { Text("رقم المرجع") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
@@ -236,7 +236,7 @@ private fun DeclarePaymentDialog(
                 onClick = {
                     onConfirm(obligation.amount, selectedMethod, today, transactionRef)
                 },
-                enabled = !isLoading && (selectedMethod != "BANK_TRANSFER" || transactionRef.isNotBlank())
+                enabled = !isLoading && transactionRef.isNotBlank()
             ) {
                 Text("تأكيد")
             }

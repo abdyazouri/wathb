@@ -55,6 +55,7 @@ import com.yawmiyati.app.ui.components.LoadingIndicator
 import com.yawmiyati.app.viewmodels.AdminDisputesViewModel
 import com.yawmiyati.app.viewmodels.DisputeActionState
 import com.yawmiyati.app.viewmodels.DisputesUiState
+import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -216,7 +217,7 @@ private fun StaleWageCard(
                 }
             }
             Text(obligation.jobTitle, style = MaterialTheme.typography.bodyMedium)
-            Text(obligation.amountDisplay, style = MaterialTheme.typography.titleMedium,
+            Text(obligation.amountDisplay.toArabicAmountDisplay(), style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary)
             Text(
                 "تاريخ الإعلان: ${obligation.declarations.firstOrNull()?.declaredAt?.take(10) ?: "—"}",
@@ -247,7 +248,7 @@ private fun PhoneResolveDialog(
         title = { Text("نتيجة المكالمة") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("${obligation.workerName ?: obligation.workerPhone} — ${obligation.amountDisplay}")
+                Text("${obligation.workerName ?: obligation.workerPhone} — ${obligation.amountDisplay.toArabicAmountDisplay()}")
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(
                         selected = selectedAction == "confirmed_by_phone",

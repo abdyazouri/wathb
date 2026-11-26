@@ -241,10 +241,10 @@ private fun AssignmentCard(
                         else       -> assignment.jobWageBasis ?: ""
                     }
                     val methodLabel = when (assignment.jobPaymentMethod) {
-                        "CASH"          -> "نقداً"
-                        "BANK_TRANSFER" -> "تحويل بنكي"
-                        "OTHER"         -> "طريقة أخرى"
-                        else            -> assignment.jobPaymentMethod ?: ""
+                        "JAWWAL_PAY"       -> "جوال باي"
+                        "PALPAY"           -> "بال باي"
+                        "BANK_OF_PALESTINE" -> "بنك فلسطين"
+                        else               -> assignment.jobPaymentMethod ?: ""
                     }
                     val wageStr = formatArabicWage(
                         assignment.jobWageAmount,
@@ -300,10 +300,10 @@ private fun AssignmentCard(
                         else       -> snapBasis ?: ""
                     }
                     val methodLabel = when (snapMethod) {
-                        "CASH"          -> "نقداً"
-                        "BANK_TRANSFER" -> "تحويل بنكي"
-                        "OTHER"         -> "طريقة أخرى"
-                        else            -> snapMethod ?: ""
+                        "JAWWAL_PAY"       -> "جوال باي"
+                        "PALPAY"           -> "بال باي"
+                        "BANK_OF_PALESTINE" -> "بنك فلسطين"
+                        else               -> snapMethod ?: ""
                     }
                     val wageStr = formatArabicWage(snapWageAmount, snapCurrency, snapBasis ?: "")
                     Text(
@@ -342,9 +342,10 @@ private fun AssignmentCard(
                         val snapBasis = snap["wage_basis"] as? String ?: ""
                         val snapMethod = snap["payment_method"] as? String
                         val methodLabel = when (snapMethod) {
-                            "CASH"          -> "نقداً"
-                            "BANK_TRANSFER" -> "تحويل بنكي"
-                            else            -> ""
+                            "JAWWAL_PAY"       -> "جوال باي"
+                            "PALPAY"           -> "بال باي"
+                            "BANK_OF_PALESTINE" -> "بنك فلسطين"
+                            else               -> ""
                         }
                         if (snapAmount != null) {
                             Text(

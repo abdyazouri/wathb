@@ -284,8 +284,8 @@ private fun DetailRow(label: String, value: String) {
 }
 
 private fun paymentMethodLabel(method: String): String = when (method) {
-    "CASH"          -> "نقداً"
-    "BANK_TRANSFER" -> "تحويل بنكي"
-    "OTHER"         -> "طريقة أخرى"
-    else            -> method
+    "JAWWAL_PAY"       -> "جوال باي"
+    "PALPAY"           -> "بال باي"
+    "BANK_OF_PALESTINE" -> "بنك فلسطين"
+    else               -> method
 }

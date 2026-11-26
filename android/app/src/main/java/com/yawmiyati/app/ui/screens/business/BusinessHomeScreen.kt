@@ -58,6 +58,7 @@ import com.yawmiyati.app.viewmodels.CloneJobUiState
 import com.yawmiyati.app.viewmodels.JobsUiState
 import com.yawmiyati.app.viewmodels.JobsViewModel
 import com.yawmiyati.app.viewmodels.PublishUiState
+import com.yawmiyati.app.ui.utils.formatArabicDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -264,7 +265,7 @@ private fun BusinessJobCard(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "${job.locationCity} · ${job.workDate}",
+                text = "${job.locationCity} · ${formatArabicDate(job.workDate)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -318,12 +319,14 @@ private fun BusinessJobCard(
 @Composable
 private fun StatusBadge(status: String) {
     val (label, color) = when (status) {
-        "PUBLISHED"      -> "منشور" to MaterialTheme.colorScheme.primary
-        "DRAFT"          -> "مسودة" to MaterialTheme.colorScheme.onSurfaceVariant
+        "PUBLISHED"      -> "منشور"      to MaterialTheme.colorScheme.primary
+        "DRAFT"          -> "مسودة"       to MaterialTheme.colorScheme.onSurfaceVariant
         "PENDING_REVIEW" -> "قيد المراجعة" to MaterialTheme.colorScheme.secondary
-        "FILLED"         -> "مكتمل" to MaterialTheme.colorScheme.tertiary
-        "CANCELLED"      -> "ملغى" to MaterialTheme.colorScheme.error
-        else             -> "حالة غير معروفة" to MaterialTheme.colorScheme.onSurfaceVariant
+        "FILLED"         -> "اكتمل العدد"  to MaterialTheme.colorScheme.tertiary
+        "IN_PROGRESS"    -> "قيد التنفيذ"  to MaterialTheme.colorScheme.tertiary
+        "COMPLETED"      -> "منتهية"       to MaterialTheme.colorScheme.onSurfaceVariant
+        "CANCELLED"      -> "ملغاة"        to MaterialTheme.colorScheme.error
+        else             -> { android.util.Log.w("StatusBadge", "unknown job status: $status"); "حالة غير معروفة" to MaterialTheme.colorScheme.onSurfaceVariant }
     }
     Surface(
         color = color.copy(alpha = 0.12f),

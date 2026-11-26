@@ -80,7 +80,7 @@ fun JobCreateScreen(
     var numWorkers by remember { mutableStateOf("1") }
     var wageAmount by remember { mutableStateOf("") }
     var wageBasis by remember { mutableStateOf("PER_DAY") }
-    var paymentMethod by remember { mutableStateOf("CASH") }
+    var paymentMethod by remember { mutableStateOf("JAWWAL_PAY") }
 
     LaunchedEffect(uiState) {
         when (val s = uiState) {
@@ -212,7 +212,7 @@ fun JobCreateScreen(
             // Payment method selector
             Text("طريقة الدفع", style = MaterialTheme.typography.labelMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("CASH" to "نقداً", "BANK_TRANSFER" to "تحويل بنكي").forEach { (code, label) ->
+                listOf("JAWWAL_PAY" to "جوال باي", "PALPAY" to "بال باي", "BANK_OF_PALESTINE" to "بنك فلسطين").forEach { (code, label) ->
                     FilterChip(
                         selected = paymentMethod == code,
                         onClick = { paymentMethod = code },

@@ -197,7 +197,12 @@ fun YawmiyatiNavGraph() {
         composable(Screen.BusinessNotifications.route) {
             com.yawmiyati.app.ui.screens.NotificationsScreen(
                 onBack = { navController.popBackStack() },
-                onNavigate = { _, _ -> }
+                onNavigate = { model, id ->
+                    when (model) {
+                        "JobListing" -> navController.navigate(Screen.JobApplications.createRoute(id))
+                        else -> {}
+                    }
+                }
             )
         }
 
