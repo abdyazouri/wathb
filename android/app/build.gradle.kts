@@ -8,14 +8,36 @@ android {
     namespace = "com.yawmiyati.app"
     compileSdk = 36
 
+    // Release signing: set all four in ~/.gradle/gradle.properties.
+    // Debug builds work without them. assembleRelease produces an unsigned APK
+    // when any are absent; sign it manually or add the properties first.
+    val releaseStoreFile     = findProperty("WATHB_STORE_FILE")     as String?
+    val releaseStorePassword = findProperty("WATHB_STORE_PASSWORD") as String?
+    val releaseKeyAlias      = findProperty("WATHB_KEY_ALIAS")      as String?
+    val releaseKeyPassword   = findProperty("WATHB_KEY_PASSWORD")   as String?
+    val hasReleaseKey = listOf(
+        releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword
+    ).all { it != null }
+
+    if (hasReleaseKey) {
+        signingConfigs {
+            create("release") {
+                storeFile     = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias      = releaseKeyAlias
+                keyPassword   = releaseKeyPassword
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.wathb.app"
         minSdk = 26
         targetSdk = 36
         // RELEASE RULE: raise versionCode whenever backend accounts/consent.py
         // bumps CONSENT_VERSION — old clients must update before they can register.
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,6 +58,9 @@ android {
                 "proguard-rules.pro"
             )
             buildConfigField("String", "API_BASE_URL", "\"https://wathb-api2.onrender.com/api/v1/\"")
+            if (hasReleaseKey) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
