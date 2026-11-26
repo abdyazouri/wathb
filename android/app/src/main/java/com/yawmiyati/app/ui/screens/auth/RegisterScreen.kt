@@ -33,11 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yawmiyati.app.viewmodels.AuthUiState
 import com.yawmiyati.app.viewmodels.AuthViewModel
+import com.yawmiyati.app.ui.components.passwordTransformation
+import com.yawmiyati.app.ui.components.PasswordVisibilityToggle
 
 @Composable
 fun RegisterScreen(
@@ -52,6 +53,7 @@ fun RegisterScreen(
     var selectedRole by remember { mutableStateOf("WORKER") }
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
     var fullName by remember { mutableStateOf("") }
     var legalName by remember { mutableStateOf("") }
     var contactName by remember { mutableStateOf("") }
@@ -135,7 +137,8 @@ fun RegisterScreen(
                 onValueChange = { password = it },
                 label = { Text("كلمة المرور") },
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = passwordTransformation(showPassword),
+                trailingIcon = { PasswordVisibilityToggle(showPassword) { showPassword = !showPassword } },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Next

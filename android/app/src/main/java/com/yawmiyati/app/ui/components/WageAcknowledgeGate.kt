@@ -22,7 +22,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import com.yawmiyati.app.data.auth.BiometricHelper
@@ -82,6 +81,7 @@ private fun AcknowledgePasswordDialog(
 ) {
     // Not rememberSaveable: the password must not be written to saved instance state.
     var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("تأكيد استلام الأجر") },
@@ -93,7 +93,8 @@ private fun AcknowledgePasswordDialog(
                     onValueChange = { password = it },
                     label = { Text("كلمة المرور") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = passwordTransformation(showPassword),
+                    trailingIcon = { PasswordVisibilityToggle(showPassword) { showPassword = !showPassword } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth()
                 )

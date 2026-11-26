@@ -52,6 +52,8 @@ import com.yawmiyati.app.viewmodels.WorkerProfileViewModel
 import com.yawmiyati.app.ui.components.BiometricLoginSwitch
 import com.yawmiyati.app.ui.components.PullableState
 import com.yawmiyati.app.ui.components.Refreshable
+import com.yawmiyati.app.ui.components.passwordTransformation
+import com.yawmiyati.app.ui.components.PasswordVisibilityToggle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -246,6 +248,7 @@ private fun DeleteAccountDialog(
     onConfirm: (password: String) -> Unit
 ) {
     var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
         title = { Text("تأكيد حذف الحساب") },
@@ -263,7 +266,8 @@ private fun DeleteAccountDialog(
                     onValueChange = { password = it },
                     label = { Text("كلمة المرور للتأكيد") },
                     singleLine = true,
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    visualTransformation = passwordTransformation(showPassword),
+                    trailingIcon = { PasswordVisibilityToggle(showPassword) { showPassword = !showPassword } },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !isLoading
                 )

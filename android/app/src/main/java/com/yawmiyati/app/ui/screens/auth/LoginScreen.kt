@@ -35,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,6 +48,8 @@ import com.yawmiyati.app.ui.components.findFragmentActivity
 import com.yawmiyati.app.data.auth.BiometricHelper
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.AlertDialog
+import com.yawmiyati.app.ui.components.passwordTransformation
+import com.yawmiyati.app.ui.components.PasswordVisibilityToggle
 
 @Composable
 fun LoginScreen(
@@ -60,6 +61,7 @@ fun LoginScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var phone    by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     // After a password login: offer fingerprint/face for next time (once per login).
@@ -173,7 +175,8 @@ fun LoginScreen(
                     onValueChange = { password = it },
                     label = { Text("كلمة المرور") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = passwordTransformation(showPassword),
+                    trailingIcon = { PasswordVisibilityToggle(showPassword) { showPassword = !showPassword } },
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Done
