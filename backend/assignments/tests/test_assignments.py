@@ -583,3 +583,62 @@ class BusinessCompleteTests(APITestCase):
             reverse("business-complete-assignment", args=[self.assignment.pk])
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class OfferChangedTermsTests(APITestCase):
+    """The offer tells the worker which terms the business changed since they applied."""
+
+    def setUp(self):
+        self.biz_user, self.biz_profile = make_business("+970599010501")
+        self.worker = make_worker("+970599010502")
+        self.job = make_job(self.biz_profile)
+
+    def _apply_and_offer(self):
+        self.client.force_authenticate(user=self.worker)
+        r = self.client.post(reverse("job-apply", args=[self.job.pk]), {"cover_note": ""}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
+        app = JobApplication.objects.get(pk=r.data["id"])
+        self.client.force_authenticate(user=self.biz_user)
+        r = self.client.patch(reverse("application-action", args=[self.job.pk, app.pk]), {"action": "offer"}, format="json")
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        return app
+
+    def _offer_as_worker_sees_it(self):
+        self.client.force_authenticate(user=self.worker)
+        rows = self.client.get(reverse("assignment-list")).data["results"]
+        return next(a for a in rows if str(a["job"]) == str(self.job.pk))
+
+    def test_apply_records_the_terms_seen(self):
+        app = self._apply_and_offer()
+        self.assertEqual(app.terms_at_apply["wage_amount"], 10000)
+        self.assertEqual(app.terms_at_apply["work_date"], str(self.job.work_date))
+
+    def test_unchanged_offer_has_no_changed_terms(self):
+        self._apply_and_offer()
+        self.assertEqual(self._offer_as_worker_sees_it()["changed_terms"], [])
+
+    def test_wage_and_date_changed_after_applying_are_listed(self):
+        self._apply_and_offer()
+        self.client.force_authenticate(user=self.biz_user)
+        r = self.client.patch(
+            reverse("job-detail", args=[self.job.pk]),
+            {"wage_amount": 8000, "work_date": str(self.job.work_date + datetime.timedelta(days=1))},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
+        self.assertEqual(self._offer_as_worker_sees_it()["changed_terms"], ["work_date", "wage_amount"])
+
+    def test_after_confirming_the_list_is_empty(self):
+        self._apply_and_offer()
+        self.job.wage_amount = 8000
+        self.job.save(update_fields=["wage_amount"])
+        offer = self._offer_as_worker_sees_it()
+        self.assertEqual(offer["changed_terms"], ["wage_amount"])
+        self.client.post(reverse("assignment-accept", args=[offer["id"]]))
+        self.assertEqual(self._offer_as_worker_sees_it()["changed_terms"], [])
+
+    def test_application_from_before_this_change_lists_nothing(self):
+        make_assignment(self.job, self.worker)  # application with no recorded terms
+        self.job.wage_amount = 8000
+        self.job.save(update_fields=["wage_amount"])
+        self.assertEqual(self._offer_as_worker_sees_it()["changed_terms"], [])

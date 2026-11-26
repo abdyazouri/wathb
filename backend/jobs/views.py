@@ -301,6 +301,7 @@ class JobApplyView(APIView):
             job=job,
             worker=request.user,
             cover_note=request.data.get("cover_note", ""),
+            terms_at_apply=job.material_terms_snapshot(),
         )
         return Response(JobApplicationSerializer(app).data, status=status.HTTP_201_CREATED)
 
@@ -386,12 +387,12 @@ def _notify_worker(worker, notification_type, job):
     try:
         from notifications.models import Notification
         titles = {
-            "JOB_OFFER": f"تم عرض وظيفة عليك: {job.title}",
+            "JOB_OFFER": f"اختارك صاحب العمل: {job.title}",
             "APPLICATION_REJECTED": f"تم رفض طلبك: {job.title}",
             "JOB_CANCELLED": f"تم إلغاء الوظيفة: {job.title}",
         }
         bodies = {
-            "JOB_OFFER": f"عرضت عليك {job.business.legal_name} العمل في '{job.title}' بتاريخ {job.work_date}.",
+            "JOB_OFFER": f"اختارتك {job.business.legal_name} للعمل في '{job.title}' بتاريخ {job.work_date}. راجع الشروط وأكّد حضورك من «طلباتي».",
             "APPLICATION_REJECTED": f"تم رفض طلبك للوظيفة '{job.title}'.",
             "JOB_CANCELLED": f"أُلغيت الوظيفة '{job.title}' بتاريخ {job.work_date}.",
         }

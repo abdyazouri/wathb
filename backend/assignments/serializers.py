@@ -10,6 +10,16 @@ class AssignmentSerializer(serializers.ModelSerializer):
     # Normalized E.164 phone of the business user — ready for tel: and wa.me links.
     business_phone = serializers.CharField(source="job.business.user.phone", read_only=True)
     wage_obligation_id = serializers.SerializerMethodField()
+    changed_terms = serializers.SerializerMethodField()
+
+    def get_changed_terms(self, obj):
+        """On an offer: which terms the business changed since the worker applied."""
+        from assignments.models import AssignmentStatus
+        from jobs.models import changed_terms
+
+        if obj.status != AssignmentStatus.OFFERED or obj.application is None:
+            return []
+        return changed_terms(obj.application.terms_at_apply, obj.job.material_terms_snapshot())
 
     def get_wage_obligation_id(self, obj):
         try:
@@ -38,7 +48,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
         model = Assignment
         fields = [
             "id", "job", "job_title", "worker_phone", "worker_name", "business_name", "business_phone",
-            "wage_obligation_id",
+            "wage_obligation_id", "changed_terms",
             "job_work_date", "job_start_time", "job_end_time",
             "job_location_city", "job_location_address",
             "job_wage_amount", "job_wage_currency", "job_wage_basis",

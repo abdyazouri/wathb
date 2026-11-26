@@ -137,6 +137,21 @@ class JobListing(models.Model):
         }
 
 
+# Terms a worker cares about when confirming an offer, in display order.
+WORKER_FACING_TERMS = (
+    "work_date", "start_time", "end_time", "location_city", "location_address",
+    "wage_amount", "wage_basis", "description", "required_skills",
+    "attendance_requirements", "cancellation_policy", "additional_conditions",
+)
+
+
+def changed_terms(before, after):
+    """Keys of WORKER_FACING_TERMS that differ; [] when nothing was recorded before."""
+    if not before:
+        return []
+    return [k for k in WORKER_FACING_TERMS if k in before and before.get(k) != after.get(k)]
+
+
 class JobApplication(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(JobListing, on_delete=models.PROTECT, related_name="applications")
@@ -145,6 +160,8 @@ class JobApplication(models.Model):
         on_delete=models.PROTECT,
         related_name="job_applications",
     )
+    # The terms the worker saw when applying; the offer shows what changed since.
+    terms_at_apply = models.JSONField(default=dict, blank=True)
     status = models.CharField(
         max_length=20,
         choices=ApplicationStatus.choices,
