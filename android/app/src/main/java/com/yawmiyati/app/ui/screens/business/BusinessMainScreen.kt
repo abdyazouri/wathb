@@ -33,6 +33,7 @@ fun BusinessMainScreen(
     onViewApplications: (jobId: String) -> Unit,
     onManageAssignment: (assignmentId: String, workerPhone: String, assignmentStatus: String) -> Unit = { _, _, _ -> },
     onOpenNotifications: () -> Unit = {},
+    onOpenPayment: (wageId: String) -> Unit = {},
     onLogout: () -> Unit,
     authViewModel: AuthViewModel = viewModel(),
     notificationsViewModel: NotificationsViewModel = viewModel()
@@ -50,8 +51,8 @@ fun BusinessMainScreen(
                     onNotifications    = onOpenNotifications,
                     unreadCount        = unreadCount,
                 )
-                1 -> BusinessAssignmentsTab(onManageAssignment = onManageAssignment)
-                2 -> WageObligationsScreen()
+                1 -> BusinessAssignmentsTab(onManageAssignment = onManageAssignment, onOpenPayment = onOpenPayment)
+                2 -> WageObligationsScreen(onPay = onOpenPayment)
                 3 -> BusinessProfileScreen(
                     onBack    = {},
                     onLogout  = {

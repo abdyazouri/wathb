@@ -8,6 +8,7 @@ import com.yawmiyati.app.data.api.BusinessProfileUpdateRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.yawmiyati.app.data.api.ApiErrors
 
 sealed class BusinessProfileUiState {
     object Loading : BusinessProfileUiState()
@@ -57,6 +58,7 @@ class BusinessProfileViewModel : ViewModel() {
         locationCity: String,
         contactName: String,
         contactPhone: String,
+        jawwalPayWallet: String,
     ) {
         if (_saveState.value is BusinessProfileSaveState.Saving) return
         viewModelScope.launch {
@@ -70,13 +72,15 @@ class BusinessProfileViewModel : ViewModel() {
                         locationCity = locationCity.trim(),
                         contactName = contactName.trim(),
                         contactPhone = contactPhone.trim(),
+                        jawwalPayWallet = jawwalPayWallet.trim(),
                     )
                 )
                 if (response.isSuccessful && response.body() != null) {
                     _uiState.value = BusinessProfileUiState.Success(response.body()!!)
                     _saveState.value = BusinessProfileSaveState.Saved
                 } else {
-                    _saveState.value = BusinessProfileSaveState.Error("فشل حفظ ملف المنشأة")
+                    // e.g. «رقم محفظة Jawwal Pay غير صالح: …»
+                    _saveState.value = BusinessProfileSaveState.Error(ApiErrors.message(response.errorBody()?.string()))
                 }
             } catch (e: Exception) {
                 _saveState.value = BusinessProfileSaveState.Error(e.message ?: "خطأ غير معروف")

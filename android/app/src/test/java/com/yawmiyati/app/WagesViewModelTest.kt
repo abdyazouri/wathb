@@ -1,6 +1,5 @@
 package com.yawmiyati.app
 
-import com.yawmiyati.app.data.api.DeclarePaymentRequest
 import com.yawmiyati.app.data.api.PaymentDeclarationResponse
 import com.yawmiyati.app.data.api.WageObligationResponse
 import com.yawmiyati.app.data.auth.SessionEventBus
@@ -74,43 +73,6 @@ class WagesViewModelTest {
     }
 
     @Test
-    fun `successful declarePayment updates obligation status`() = runTest(testDispatcher) {
-        val obligation = fakeObligation("obl-1", "PENDING")
-        val declaration = fakeDeclaration("decl-1", "obl-1")
-        val repo = object : WageRepository() {
-            override suspend fun listObligations(status: String?) = WageResult.Success(listOf(obligation))
-            override suspend fun declarePayment(id: String, request: DeclarePaymentRequest) =
-                WageResult.Success(declaration)
-        }
-        val vm = WagesViewModel(repo)
-        advanceUntilIdle()
-        vm.declarePayment("obl-1", 10000L, "2026-10-10", "JAWWAL_PAY", "")
-        advanceUntilIdle()
-        assertEquals(WageActionState.Success, vm.actionState.value)
-        val state = vm.uiState.value as WagesUiState.Success
-        assertEquals("AWAITING_ACK", state.obligations.first().status)
-    }
-
-    @Test
-    fun `declarePayment API error surfaces in actionState`() = runTest(testDispatcher) {
-        val obligation = fakeObligation("obl-2", "PENDING")
-        val repo = object : WageRepository() {
-            override suspend fun listObligations(status: String?) = WageResult.Success(listOf(obligation))
-            override suspend fun declarePayment(id: String, request: DeclarePaymentRequest) =
-                WageResult.Error("خطأ في الشبكة")
-        }
-        val vm = WagesViewModel(repo)
-        advanceUntilIdle()
-        vm.declarePayment("obl-2", 10000L, "2026-10-10", "JAWWAL_PAY", "")
-        advanceUntilIdle()
-        val action = vm.actionState.value
-        assertTrue(action is WageActionState.Error)
-        assertEquals("خطأ في الشبكة", (action as WageActionState.Error).message)
-    }
-
-    // ── WorkerWagesViewModel ──────────────────────────────────────────────────
-
-    @Test
     fun `worker acknowledges payment and obligation updates`() = runTest(testDispatcher) {
         val obligation = fakeObligation("w-obl-1", "AWAITING_ACK")
         val acknowledged = obligation.copy(status = "VERIFIED_PAID")
@@ -178,25 +140,6 @@ class WagesViewModelTest {
         assertTrue("Expected session expired event", events.isNotEmpty())
         // uiState stays as Loading (never set to Error) since auth error navigates away
         assertTrue(vm.uiState.value is WagesUiState.Loading)
-        job.cancel()
-    }
-
-    @Test
-    fun `WagesViewModel auth error on declarePayment emits session expired and resets actionState`() = runTest(testDispatcher) {
-        val obligation = fakeObligation("obl-auth", "PENDING")
-        val repo = object : WageRepository() {
-            override suspend fun listObligations(status: String?) = WageResult.Success(listOf(obligation))
-            override suspend fun declarePayment(id: String, request: DeclarePaymentRequest) =
-                WageResult.Error("انتهت الجلسة", isAuth = true)
-        }
-        val events = mutableListOf<Unit>()
-        val job = launch { SessionEventBus.sessionExpired.collect { events.add(it) } }
-        val vm = WagesViewModel(repo)
-        advanceUntilIdle()
-        vm.declarePayment("obl-auth", 10000L, "2026-10-11", "JAWWAL_PAY", "")
-        advanceUntilIdle()
-        assertTrue("Expected session expired event", events.isNotEmpty())
-        assertTrue(vm.actionState.value is WageActionState.Idle)
         job.cancel()
     }
 

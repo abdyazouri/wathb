@@ -51,8 +51,16 @@ import com.yawmiyati.app.ui.components.NotDoneDialog
 @Composable
 fun BusinessAssignmentsTab(
     onManageAssignment: (assignmentId: String, workerPhone: String, assignmentStatus: String) -> Unit = { _, _, _ -> },
+    onOpenPayment: (wageId: String) -> Unit = {},
     viewModel: AssignmentsViewModel = viewModel()
 ) {
+    val paymentToOpen by viewModel.paymentToOpen.collectAsState()
+    LaunchedEffect(paymentToOpen) {
+        paymentToOpen?.let { wageId ->
+            viewModel.paymentOpened()
+            onOpenPayment(wageId)  // «تأكيد ودفع الأجر» → «تحويل الأجر»
+        }
+    }
     val uiState by viewModel.uiState.collectAsState()
     val actionState by viewModel.actionState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }

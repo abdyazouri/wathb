@@ -55,6 +55,7 @@ import com.yawmiyati.app.viewmodels.WorkerWagesViewModel
 import com.yawmiyati.app.ui.utils.StatusLabels
 import com.yawmiyati.app.ui.components.PullableState
 import com.yawmiyati.app.ui.components.Refreshable
+import com.yawmiyati.app.ui.utils.toArabic
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -198,7 +199,8 @@ private fun WorkerWageCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            val latestDecl = obligation.declarations.lastOrNull()
+            // The server lists declarations newest first.
+            val latestDecl = obligation.declarations.firstOrNull()
             if (latestDecl != null) {
                 Text(
                     text = "طريقة الدفع: ${paymentMethodLabel(latestDecl.paymentMethod)}",
@@ -211,11 +213,27 @@ private fun WorkerWageCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            if (obligation.status == "AWAITING_ACK" && latestDecl?.providerConfirmed == true) {
+                // Jawwal Pay itself confirmed the transfer: received unless disputed within 24 h.
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "وصلك أجرك عبر Jawwal Pay. إن لم يصلك اضغط «لم أستلم أجري» خلال ٢٤ ساعة، وبعدها يُعتبر مستلمًا.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
             if (obligation.status == "AWAITING_ACK") {
                 val days = daysSinceDeclaration(obligation.declarations)
-                if (days >= 1) {
+                // Provider-confirmed payments are acknowledged automatically: no reminder.
+                if (days >= 1 && latestDecl?.providerConfirmed != true) {
                     val reminderText = if (days >= 3)
-                        "تنبيه: مضى $days أيام على إعلان الدفع. يرجى الإقرار أو الاعتراض فوراً."
+                        "تنبيه: مضى ${days.toArabic()} أيام على إعلان الدفع. يرجى الإقرار أو الاعتراض فوراً."
                     else
                         "يرجى مراجعة إعلان الدفع وتأكيد استلامك أو الاعتراض عليه."
                     val reminderColor = if (days >= 3) MaterialTheme.colorScheme.errorContainer

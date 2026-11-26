@@ -59,3 +59,11 @@ fun formatArabicWage(minorUnits: Long, currency: String, basis: String): String 
     }
     return "$major $sym $basisAr"
 }
+
+/** "+970599123456" → "0599123456" (how people type and read Palestinian mobiles); null → "". */
+fun String?.toLocalPhone(): String = when {
+    this.isNullOrBlank() -> ""
+    startsWith("+970") -> "0" + removePrefix("+970")
+    startsWith("+972") -> "0" + removePrefix("+972")
+    else -> this
+}

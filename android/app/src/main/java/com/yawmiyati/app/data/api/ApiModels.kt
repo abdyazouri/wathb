@@ -129,6 +129,8 @@ data class BusinessProfileResponse(
     @SerializedName("contact_name") val contactName: String,
     @SerializedName("contact_phone") val contactPhone: String,
     @SerializedName("verification_status") val verificationStatus: String,
+    // The business's Jawwal Pay wallet (E.164); null/blank when not linked.
+    @SerializedName("jawwal_pay_wallet") val jawwalPayWallet: String? = null,
 )
 
 data class BusinessProfileUpdateRequest(
@@ -138,6 +140,7 @@ data class BusinessProfileUpdateRequest(
     @SerializedName("location_city") val locationCity: String? = null,
     @SerializedName("contact_name") val contactName: String? = null,
     @SerializedName("contact_phone") val contactPhone: String? = null,
+    @SerializedName("jawwal_pay_wallet") val jawwalPayWallet: String? = null,
 )
 
 // Matches JobListingCreateSerializer — wage_amount in minor units (agorot/cents)
@@ -153,7 +156,6 @@ data class JobCreateRequest(
     @SerializedName("wage_amount") val wageAmount: Long,        // minor units
     @SerializedName("wage_currency") val wageCurrency: String = "ILS",
     @SerializedName("wage_basis") val wageBasis: String = "PER_DAY",
-    @SerializedName("payment_method") val paymentMethod: String,  // JAWWAL_PAY | PALPAY | BANK_OF_PALESTINE; required by the server
     @SerializedName("required_skills") val requiredSkills: String = "",
     @SerializedName("attendance_requirements") val attendanceRequirements: String = "",
     @SerializedName("cancellation_policy") val cancellationPolicy: String = "",
@@ -376,17 +378,42 @@ data class PaymentDeclarationResponse(
     @SerializedName("declared_by_phone") val declaredByPhone: String,
     @SerializedName("declared_at") val declaredAt: String,
     val status: String,
-    @SerializedName("review_notes") val reviewNotes: String
+    @SerializedName("review_notes") val reviewNotes: String,
+    // True when Jawwal Pay itself confirmed the transfer (automatic mode).
+    @SerializedName("provider_confirmed") val providerConfirmed: Boolean? = null
 )
 
-// Matches PaymentDeclarationCreateSerializer
+// Manual mode «حوّلت الأجر». Amount, currency and method are set by the server.
 data class DeclarePaymentRequest(
-    @SerializedName("declared_amount") val declaredAmount: Long,
-    val currency: String = "ILS",
-    @SerializedName("payment_date") val paymentDate: String,
-    @SerializedName("payment_method") val paymentMethod: String,
     @SerializedName("transaction_reference") val transactionReference: String = ""
 )
+
+// ── «تحويل الأجر» ─────────────────────────────────────────────────────────────
+
+/** GET wages/{id}/payment/ — read-only; every value comes from the server. */
+data class PaymentInfoResponse(
+    @SerializedName("wage_id") val wageId: String,
+    val mode: String,                         // "automatic" | "manual"
+    val status: String,
+    val payable: Boolean,
+    val amount: Long,                         // agorot
+    @SerializedName("amount_display") val amountDisplay: String,
+    @SerializedName("job_title") val jobTitle: String,
+    @SerializedName("worker_name") val workerName: String,
+    @SerializedName("worker_wallet") val workerWallet: String,
+    @SerializedName("business_wallet") val businessWallet: String? = null,
+    @SerializedName("needs_wallet") val needsWallet: Boolean,
+    val attempt: PaymentAttemptInfo? = null,
+)
+
+data class PaymentAttemptInfo(
+    val status: String,                       // INITIATED | SUCCEEDED | FAILED | UNKNOWN
+    val failure: String? = null,
+    @SerializedName("resend_available_at") val resendAvailableAt: String? = null,
+)
+
+/** The SMS code, sent once and never kept. */
+data class PaymentCodeRequest(val code: String)
 
 data class DisputePaymentRequest(
     val category: String = "PAYMENT_NOT_RECEIVED",

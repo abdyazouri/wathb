@@ -176,12 +176,20 @@ class BusinessAssignmentViewModel(
         }
     }
 
+    private val _paymentToOpen = MutableStateFlow<String?>(null)
+    /** Wage to pay right after the business confirmed the work. */
+    val paymentToOpen: StateFlow<String?> = _paymentToOpen
+    fun paymentOpened() { _paymentToOpen.value = null }
+
     fun businessComplete(assignmentId: String) {
         if (_actionState.value is AssignmentWorkActionState.Loading) return
         viewModelScope.launch {
             _actionState.value = AssignmentWorkActionState.Loading
             when (val r = repository.businessComplete(assignmentId)) {
-                is AssignmentResult.Success -> _actionState.value = AssignmentWorkActionState.Success
+                is AssignmentResult.Success -> {
+                    _actionState.value = AssignmentWorkActionState.Success
+                    _paymentToOpen.value = r.data.wageObligationId
+                }
                 is AssignmentResult.Error   -> _actionState.value = AssignmentWorkActionState.Error(r.message)
             }
         }

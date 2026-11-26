@@ -23,9 +23,12 @@ object ApiClient {
         override fun clear() { tokenManager?.clear() }
     }
 
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
+    private val loggingInterceptor = HttpLoggingInterceptor { message ->
+        android.util.Log.d("OkHttp", redactSecrets(message))
+    }.apply {
         level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
                 else HttpLoggingInterceptor.Level.NONE
+        redactHeader("Authorization")
     }
 
     private val authInterceptor = Interceptor { chain ->

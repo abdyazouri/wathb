@@ -53,6 +53,7 @@ import com.yawmiyati.app.ui.components.PullableState
 import com.yawmiyati.app.ui.components.Refreshable
 import com.yawmiyati.app.ui.components.passwordTransformation
 import com.yawmiyati.app.ui.components.PasswordVisibilityToggle
+import com.yawmiyati.app.ui.utils.toLocalPhone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,6 +122,7 @@ fun BusinessProfileScreen(
                     var locationCity    by remember(profile) { mutableStateOf(profile.locationCity) }
                     var contactName     by remember(profile) { mutableStateOf(profile.contactName) }
                     var contactPhone    by remember(profile) { mutableStateOf(profile.contactPhone) }
+                    var jawwalPayWallet by remember(profile) { mutableStateOf(profile.jawwalPayWallet.toLocalPhone()) }
     
                     Column(
                         modifier = Modifier
@@ -216,6 +218,18 @@ fun BusinessProfileScreen(
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                         )
+
+                        OutlinedTextField(
+                            value = jawwalPayWallet,
+                            onValueChange = { v -> jawwalPayWallet = v.filter { it.isDigit() || it == '+' }.take(14) },
+                            label = { Text("رقم محفظة Jawwal Pay") },
+                            supportingText = { Text("تدفع منها أجور العمال. مثال: 0599123456") },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                        )
     
                         Spacer(Modifier.height(8.dp))
     
@@ -223,7 +237,7 @@ fun BusinessProfileScreen(
                             onClick = {
                                 viewModel.save(
                                     legalName, tradeName, locationAddress,
-                                    locationCity, contactName, contactPhone
+                                    locationCity, contactName, contactPhone, jawwalPayWallet
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),

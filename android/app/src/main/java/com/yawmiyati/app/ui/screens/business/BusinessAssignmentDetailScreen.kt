@@ -56,8 +56,16 @@ fun BusinessAssignmentDetailScreen(
     workerPhone: String,
     assignmentStatus: String = "",
     onBack: () -> Unit,
+    onOpenPayment: (wageId: String) -> Unit = {},
     viewModel: BusinessAssignmentViewModel = viewModel()
 ) {
+    val paymentToOpen by viewModel.paymentToOpen.collectAsState()
+    LaunchedEffect(paymentToOpen) {
+        paymentToOpen?.let { wageId ->
+            viewModel.paymentOpened()
+            onOpenPayment(wageId)
+        }
+    }
     val actionState by viewModel.actionState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current

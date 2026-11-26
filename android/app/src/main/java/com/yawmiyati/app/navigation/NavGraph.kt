@@ -23,6 +23,7 @@ import com.yawmiyati.app.ui.screens.worker.JobDetailScreen
 import com.yawmiyati.app.ui.screens.worker.WorkerAssignmentDetailScreen
 import com.yawmiyati.app.ui.screens.worker.WorkerMainScreen
 import com.yawmiyati.app.ui.screens.auth.UnlockScreen
+import com.yawmiyati.app.ui.screens.business.WagePaymentScreen
 
 /** A saved session opens behind the fingerprint/face lock when the user turned it on. */
 fun startRouteFor(isLoggedIn: Boolean, biometricLogin: Boolean, homeRoute: String): String = when {
@@ -205,6 +206,7 @@ fun YawmiyatiNavGraph() {
                 onOpenNotifications = {
                     navController.navigate(Screen.BusinessNotifications.route)
                 },
+                onOpenPayment = { wageId -> navController.navigate(Screen.WagePayment.createRoute(wageId)) },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -258,7 +260,16 @@ fun YawmiyatiNavGraph() {
                 assignmentId     = assignmentId,
                 workerPhone      = workerPhone,
                 assignmentStatus = assignmentStatus,
-                onBack           = { navController.popBackStack() }
+                onBack           = { navController.popBackStack() },
+                onOpenPayment    = { wageId -> navController.navigate(Screen.WagePayment.createRoute(wageId)) }
+            )
+        }
+
+        composable(Screen.WagePayment.route) { backStackEntry ->
+            WagePaymentScreen(
+                wageId = backStackEntry.arguments?.getString("wageId") ?: "",
+                onBack = { navController.popBackStack() },
+                onOpenProfile = { navController.navigate(Screen.BusinessProfile.route) }
             )
         }
 

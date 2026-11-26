@@ -2,7 +2,6 @@ package com.yawmiyati.app.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.yawmiyati.app.data.api.DeclarePaymentRequest
 import com.yawmiyati.app.data.api.WageObligationResponse
 import com.yawmiyati.app.data.auth.SessionEventBus
 import com.yawmiyati.app.data.wages.WageRepository
@@ -52,48 +51,6 @@ class WagesViewModel(
         }
     }
 
-    fun declarePayment(
-        obligationId: String,
-        declaredAmount: Long,
-        paymentDate: String,
-        paymentMethod: String,
-        transactionReference: String
-    ) {
-        if (_actionState.value is WageActionState.Loading) return
-        viewModelScope.launch {
-            _actionState.value = WageActionState.Loading
-            val req = DeclarePaymentRequest(
-                declaredAmount = declaredAmount,
-                paymentDate = paymentDate,
-                paymentMethod = paymentMethod,
-                transactionReference = transactionReference
-            )
-            when (val r = repository.declarePayment(obligationId, req)) {
-                is WageResult.Success -> {
-                    _actionState.value = WageActionState.Success
-                    updateObligationStatus(obligationId, "AWAITING_ACK")
-                }
-                is WageResult.Error -> {
-                    if (r.isAuth) {
-                        _actionState.value = WageActionState.Idle
-                        SessionEventBus.emitSessionExpired()
-                    } else {
-                        _actionState.value = WageActionState.Error(r.message)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun updateObligationStatus(id: String, newStatus: String) {
-        val current = _uiState.value
-        if (current is WagesUiState.Success) {
-            val updated = current.obligations.map {
-                if (it.id == id) it.copy(status = newStatus) else it
-            }
-            _uiState.value = WagesUiState.Success(updated)
-        }
-    }
 
     fun resetActionState() {
         _actionState.value = WageActionState.Idle

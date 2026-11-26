@@ -34,8 +34,7 @@ class JobCreateViewModel(
         endTime: String,        // HH:MM
         numWorkers: Int,
         wageAmountIls: Long,    // in full ILS — we convert to agorot (×100) here
-        wageBasis: String,
-        paymentMethod: String
+        wageBasis: String
     ) {
         viewModelScope.launch {
             _uiState.value = JobCreateUiState.Loading
@@ -49,8 +48,7 @@ class JobCreateViewModel(
                 endTime = endTime.trim(),
                 numWorkersNeeded = numWorkers,
                 wageAmount = wageAmountIls * 100,   // store in minor units
-                wageBasis = wageBasis,
-                paymentMethod = paymentMethod
+                wageBasis = wageBasis
             )
             _uiState.value = when (val result = repository.createJob(request)) {
                 is JobResult.Success -> JobCreateUiState.Success(result.data)

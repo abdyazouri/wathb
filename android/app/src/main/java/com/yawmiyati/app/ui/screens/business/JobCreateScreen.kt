@@ -81,7 +81,6 @@ fun JobCreateScreen(
     var numWorkers by remember { mutableStateOf("1") }
     var wageAmount by remember { mutableStateOf("") }
     var wageBasis by remember { mutableStateOf("PER_DAY") }
-    var paymentMethod by remember { mutableStateOf("JAWWAL_PAY") }
 
     LaunchedEffect(uiState) {
         when (val s = uiState) {
@@ -210,17 +209,12 @@ fun JobCreateScreen(
                 }
             }
 
-            // Payment method selector
-            Text("طريقة الدفع", style = MaterialTheme.typography.labelMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("JAWWAL_PAY" to "جوال باي", "PALPAY" to "بال باي", "BANK_OF_PALESTINE" to "بنك فلسطين").forEach { (code, label) ->
-                    FilterChip(
-                        selected = paymentMethod == code,
-                        onClick = { paymentMethod = code },
-                        label = { Text(label) }
-                    )
-                }
-            }
+            // Payment: always Jawwal Pay, set by the server — nothing to choose.
+            Text(
+                "يُدفع الأجر عبر Jawwal Pay يوم العمل نفسه.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Spacer(Modifier.height(8.dp))
 
@@ -236,8 +230,7 @@ fun JobCreateScreen(
                         endTime = endTime,
                         numWorkers = numWorkers.toIntOrNull() ?: 1,
                         wageAmountIls = wageAmount.toLongOrNull() ?: 0L,
-                        wageBasis = wageBasis,
-                        paymentMethod = paymentMethod
+                        wageBasis = wageBasis
                     )
                 },
                 enabled = uiState !is JobCreateUiState.Loading,

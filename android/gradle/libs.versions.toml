@@ -1,4 +1,5 @@
 [versions]
+playServicesAuthApiPhone = "18.1.0"
 agp = "8.5.2"
 kotlin = "2.0.20"
 coreKtx = "1.13.1"
@@ -19,6 +20,8 @@ viewmodelCompose = "2.8.5"
 coil = "2.7.0"
 
 [libraries]
+# SMS User Consent API: reads the Jawwal Pay code with one tap, no READ_SMS permission.
+play-services-auth-api-phone = { group = "com.google.android.gms", name = "play-services-auth-api-phone", version.ref = "playServicesAuthApiPhone" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

@@ -98,6 +98,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.gson)
+    implementation(libs.play.services.auth.api.phone)
 
     // Image loading
     implementation(libs.coil.compose)

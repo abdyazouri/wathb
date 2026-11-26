@@ -60,18 +60,17 @@ import com.yawmiyati.app.ui.components.Refreshable
 @Composable
 fun WageObligationsScreen(
     onBack: (() -> Unit)? = null,
+    onPay: (wageId: String) -> Unit = {},
     viewModel: WagesViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val actionState by viewModel.actionState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var declareDialogObligation by remember { mutableStateOf<WageObligationResponse?>(null) }
 
     LaunchedEffect(actionState) {
         when (actionState) {
             is WageActionState.Success -> {
-                snackbarHostState.showSnackbar("تم تسجيل الدفع بنجاح")
-                declareDialogObligation = null
+                snackbarHostState.showSnackbar("تم بنجاح")
                 viewModel.resetActionState()
             }
             is WageActionState.Error -> {
@@ -131,7 +130,7 @@ fun WageObligationsScreen(
                     items(state.obligations, key = { it.id }) { obligation ->
                         WageObligationCard(
                             obligation = obligation,
-                            onDeclare = { declareDialogObligation = obligation }
+                            onDeclare = { onPay(obligation.id) }
                         )
                     }
                     item { Spacer(Modifier.height(16.dp)) }
@@ -140,16 +139,6 @@ fun WageObligationsScreen(
         }
     }
 
-    declareDialogObligation?.let { obligation ->
-        DeclarePaymentDialog(
-            obligation = obligation,
-            isLoading = actionState is WageActionState.Loading,
-            onDismiss = { declareDialogObligation = null },
-            onConfirm = { amount, method, date, ref ->
-                viewModel.declarePayment(obligation.id, amount, date, method, ref)
-            }
-        )
-    }
 }
 
 @Composable
@@ -190,69 +179,11 @@ private fun WageObligationCard(
                     onClick = onDeclare,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("الإعلان عن دفع الأجر")
+                    Text("تحويل الأجر")
                 }
             }
         }
     }
-}
-
-@Composable
-private fun DeclarePaymentDialog(
-    obligation: WageObligationResponse,
-    isLoading: Boolean,
-    onDismiss: () -> Unit,
-    onConfirm: (amount: Long, method: String, date: String, ref: String) -> Unit
-) {
-    val paymentMethods = listOf("JAWWAL_PAY" to "جوال باي", "PALPAY" to "بال باي", "BANK_OF_PALESTINE" to "بنك فلسطين")
-    var selectedMethod by rememberSaveable { mutableStateOf("JAWWAL_PAY") }
-    var transactionRef by rememberSaveable { mutableStateOf("") }
-    val today = LocalDate.now().toString()
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("الإعلان عن دفع الأجر") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "المبلغ: ${obligation.amountDisplay.toArabicAmountDisplay()}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text("طريقة الدفع:", style = MaterialTheme.typography.labelMedium)
-                paymentMethods.forEach { (value, label) ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        RadioButton(
-                            selected = selectedMethod == value,
-                            onClick = { selectedMethod = value }
-                        )
-                        Text(label, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                OutlinedTextField(
-                    value = transactionRef,
-                    onValueChange = { transactionRef = it },
-                    label = { Text("رقم المرجع") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onConfirm(obligation.amount, selectedMethod, today, transactionRef)
-                },
-                enabled = !isLoading && transactionRef.isNotBlank()
-            ) {
-                Text("تأكيد")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isLoading) { Text("إلغاء") }
-        }
-    )
 }
 
 @Composable
