@@ -36,3 +36,22 @@ class HealthViewTests(TestCase):
         data = response.json()
         self.assertEqual(data["status"], "degraded")
         self.assertFalse(data["db"])
+
+    def test_migration_check_error_returns_503(self):
+        with patch("yawmiyati.health_urls.MigrationExecutor", side_effect=Exception("boom")):
+            response = self.client.get(reverse("health"))
+        self.assertEqual(response.status_code, 503)
+        data = response.json()
+        self.assertEqual(data["status"], "degraded")
+        self.assertTrue(data["db"])
+        self.assertEqual(data["migrations"], "unknown")
+
+    def test_body_shape_is_identical_for_200_and_503(self):
+        ok = self.client.get(reverse("health"))
+        with patch("yawmiyati.health_urls.connection") as mock_conn:
+            mock_conn.cursor.side_effect = Exception("connection refused")
+            down = self.client.get(reverse("health"))
+        self.assertEqual((ok.status_code, down.status_code), (200, 503))
+        self.assertEqual(set(ok.json()), {"status", "db", "migrations"})
+        self.assertEqual(set(down.json()), set(ok.json()))
+        self.assertEqual(down["Content-Type"], ok["Content-Type"])
