@@ -1,11 +1,6 @@
 package com.yawmiyati.app.ui.screens.auth
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -17,14 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -42,17 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.yawmiyati.app.YawmiyatiApp
-import com.yawmiyati.app.data.auth.BiometricHelper
 import com.yawmiyati.app.ui.theme.WathbDeepTeal
 import com.yawmiyati.app.ui.theme.WathbGold
 import com.yawmiyati.app.ui.theme.WathbTeal
@@ -69,14 +56,6 @@ fun LoginScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var phone    by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-
-    val context = LocalContext.current
-    val activity = context as? FragmentActivity
-    val tokenManager = remember { YawmiyatiApp.instance.tokenManager }
-
-    // Computed directly — no caching, reads current flag every recomposition
-    // Note: activity is only needed for the biometric prompt UI, not for showing the button
-    val showBiometric = tokenManager.isBiometricEligible()
 
     LaunchedEffect(uiState) {
         when (val state = uiState) {
@@ -173,54 +152,20 @@ fun LoginScreen(
 
                 Spacer(Modifier.height(28.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Button(
+                    onClick = { viewModel.login(phone, password) },
+                    enabled = uiState !is AuthUiState.Loading,
+                    colors = ButtonDefaults.buttonColors(containerColor = WathbDeepTeal),
+                    modifier = Modifier.fillMaxWidth().height(52.dp)
                 ) {
-                    Button(
-                        onClick = { viewModel.login(phone, password) },
-                        enabled = uiState !is AuthUiState.Loading,
-                        colors = ButtonDefaults.buttonColors(containerColor = WathbDeepTeal),
-                        modifier = Modifier.weight(1f).height(52.dp)
-                    ) {
-                        if (uiState is AuthUiState.Loading) {
-                            CircularProgressIndicator(
-                                modifier  = Modifier.height(20.dp),
-                                strokeWidth = 2.dp,
-                                color     = Color.White
-                            )
-                        } else {
-                            Text("دخول", style = MaterialTheme.typography.labelLarge, color = Color.White)
-                        }
-                    }
-
-                    if (showBiometric) {
-                        OutlinedButton(
-                            onClick = {
-                                val act = activity
-                                if (act != null && BiometricHelper.isAvailable(context)) {
-                                    BiometricHelper.prompt(
-                                        activity = act,
-                                        onSuccess = { viewModel.loginWithBiometric() },
-                                        onFailed = {},
-                                        onError = {}
-                                    )
-                                } else {
-                                    viewModel.loginWithBiometric()
-                                }
-                            },
-                            modifier = Modifier.size(52.dp),
-                            shape = CircleShape,
-                            contentPadding = PaddingValues(0.dp),
-                            border = BorderStroke(1.5.dp, WathbDeepTeal)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Fingerprint,
-                                contentDescription = "الدخول بالبصمة",
-                                tint = WathbDeepTeal
-                            )
-                        }
+                    if (uiState is AuthUiState.Loading) {
+                        CircularProgressIndicator(
+                            modifier  = Modifier.height(20.dp),
+                            strokeWidth = 2.dp,
+                            color     = Color.White
+                        )
+                    } else {
+                        Text("دخول", style = MaterialTheme.typography.labelLarge, color = Color.White)
                     }
                 }
 

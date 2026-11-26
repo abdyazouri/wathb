@@ -46,6 +46,7 @@ import com.yawmiyati.app.data.api.WageObligationResponse
 import com.yawmiyati.app.ui.components.EmptyState
 import com.yawmiyati.app.ui.components.ErrorMessage
 import com.yawmiyati.app.ui.components.LoadingIndicator
+import com.yawmiyati.app.ui.components.rememberWageAcknowledgeGate
 import com.yawmiyati.app.ui.utils.formatArabicDate
 import com.yawmiyati.app.ui.utils.toArabicNumerals
 import com.yawmiyati.app.viewmodels.WageActionState
@@ -63,6 +64,7 @@ fun WorkerWagesScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var confirmObligation by remember { mutableStateOf<WageObligationResponse?>(null) }
     var disputeObligation by remember { mutableStateOf<WageObligationResponse?>(null) }
+    val acknowledge = rememberWageAcknowledgeGate { id, password -> viewModel.acknowledgePayment(id, password) }
 
     LaunchedEffect(actionState) {
         when (actionState) {
@@ -139,8 +141,8 @@ fun WorkerWagesScreen(
             isLoading = actionState is WageActionState.Loading,
             onDismiss = { confirmObligation = null },
             onConfirm = {
-                viewModel.acknowledgePayment(obligation.id)
                 confirmObligation = null
+                acknowledge(obligation.id)
             }
         )
     }

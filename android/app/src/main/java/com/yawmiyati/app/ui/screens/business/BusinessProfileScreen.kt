@@ -52,7 +52,6 @@ import com.yawmiyati.app.viewmodels.DeleteAccountState
 @Composable
 fun BusinessProfileScreen(
     onBack: () -> Unit,
-    onLockApp: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null,
     viewModel: BusinessProfileViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel()

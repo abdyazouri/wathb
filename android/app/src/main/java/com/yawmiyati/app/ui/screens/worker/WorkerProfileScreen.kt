@@ -54,7 +54,6 @@ import com.yawmiyati.app.viewmodels.WorkerProfileViewModel
 @Composable
 fun WorkerProfileScreen(
     onBack: (() -> Unit)? = null,
-    onLockApp: (() -> Unit)? = null,
     onLogout: (() -> Unit)? = null,
     viewModel: WorkerProfileViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel()

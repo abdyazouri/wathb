@@ -74,8 +74,9 @@ class WorkerAssignmentDetailViewModel(
         }
     }
 
-    fun acknowledgeWage(obligationId: String) = performAction {
-        when (val r = wageRepository.acknowledgePayment(obligationId)) {
+    /** Call only after the worker passed BiometricPrompt, or with their [password]. */
+    fun acknowledgeWage(obligationId: String, password: String? = null) = performAction {
+        when (val r = wageRepository.acknowledgePayment(obligationId, password)) {
             is WageResult.Success -> {
                 _wagesForAssignment.value = r.data
                 AssignmentResult.Success(Unit)

@@ -116,7 +116,7 @@ class WagesViewModelTest {
         val acknowledged = obligation.copy(status = "VERIFIED_PAID")
         val repo = object : WageRepository() {
             override suspend fun listObligations(status: String?) = WageResult.Success(listOf(obligation))
-            override suspend fun acknowledgePayment(id: String) = WageResult.Success(acknowledged)
+            override suspend fun acknowledgePayment(id: String, password: String?) = WageResult.Success(acknowledged)
         }
         val vm = WorkerWagesViewModel(repo)
         advanceUntilIdle()
@@ -205,7 +205,7 @@ class WagesViewModelTest {
         val obligation = fakeObligation("w-auth-1", "AWAITING_ACK")
         val repo = object : WageRepository() {
             override suspend fun listObligations(status: String?) = WageResult.Success(listOf(obligation))
-            override suspend fun acknowledgePayment(id: String) =
+            override suspend fun acknowledgePayment(id: String, password: String?) =
                 WageResult.Error("غير مصرح", isAuth = true)
         }
         val events = mutableListOf<Unit>()

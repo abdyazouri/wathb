@@ -98,11 +98,12 @@ class AssignmentsViewModel(
         }
     }
 
-    fun acknowledgeWage(obligationId: String) {
+    /** Call only after the worker passed BiometricPrompt, or with their [password]. */
+    fun acknowledgeWage(obligationId: String, password: String? = null) {
         if (_actionState.value is AssignmentActionState.Loading) return
         viewModelScope.launch {
             _actionState.value = AssignmentActionState.Loading
-            when (val result = wageRepository.acknowledgePayment(obligationId)) {
+            when (val result = wageRepository.acknowledgePayment(obligationId, password)) {
                 is WageResult.Success -> {
                     _actionState.value = AssignmentActionState.Success
                     loadAssignments()

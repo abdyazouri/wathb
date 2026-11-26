@@ -85,23 +85,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun loginWithBiometric() {
-        viewModelScope.launch {
-            _uiState.value = AuthUiState.Loading
-            _uiState.value = when (val result = repository.refreshSession()) {
-                is AuthResult.Success -> AuthUiState.Success(result.data)
-                is AuthResult.Error   -> AuthUiState.Error(result.message)
-            }
-        }
-    }
-
-    /** Lock app: access token removed locally, refresh token + biometric flag kept. No server call. */
-    fun lockApp() {
-        repository.lockApp()
-        _uiState.value = AuthUiState.LoggedOut
-    }
-
-    /** Full logout: blacklists refresh token on server, wipes all local tokens + biometric flag. */
+    /** Full logout: blacklists refresh token on server, wipes all local tokens. */
     fun logout() {
         viewModelScope.launch {
             repository.logout()

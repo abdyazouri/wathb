@@ -8,8 +8,6 @@ import com.yawmiyati.app.data.api.LoginRequest
 import com.yawmiyati.app.data.api.RefreshRequest
 import com.yawmiyati.app.data.api.RegisterBusinessRequest
 import com.yawmiyati.app.data.api.RegisterWorkerRequest
-import com.yawmiyati.app.data.api.SessionRefreshUnavailableException
-import com.yawmiyati.app.data.api.TokenAuthenticator
 import com.yawmiyati.app.data.api.UserResponse
 
 sealed class AuthResult<out T> {
@@ -108,17 +106,8 @@ class AuthRepository(private val tokenManager: TokenManager) {
     }
 
     /**
-     * Lock the app: removes access token locally; refresh token stays valid on the server
-     * so the next biometric prompt can obtain a new access token without a password.
-     * No network call.
-     */
-    fun lockApp() {
-        tokenManager.softLogout()
-    }
-
-    /**
-     * Full logout: blacklists the refresh token on the server, then wipes all local tokens
-     * and the biometric-eligible flag. The user must re-enter their password next time.
+     * Full logout: blacklists the refresh token on the server, then wipes all local tokens.
+     * The user must re-enter their password next time.
      */
     suspend fun logout() {
         val refresh = tokenManager.getRefreshToken()
@@ -126,36 +115,6 @@ class AuthRepository(private val tokenManager: TokenManager) {
             try { api.logout(RefreshRequest(refresh)) } catch (_: Exception) {}
         }
         tokenManager.clear()
-    }
-
-    /** Exchange the stored refresh token for a new access token (used by biometric login). */
-    suspend fun refreshSession(): AuthResult<UserResponse> {
-        val refresh = tokenManager.getRefreshToken()
-            ?: return AuthResult.Error("لا توجد جلسة محفوظة")
-        return try {
-            val response = api.refreshToken(RefreshRequest(refresh))
-            if (response.isSuccessful) {
-                val body = response.body()!!
-                val newRefresh = body.refresh ?: refresh
-                tokenManager.saveTokens(body.access, newRefresh)
-                val meResponse = api.me()
-                if (meResponse.isSuccessful) {
-                    val user = meResponse.body()!!
-                    tokenManager.saveRole(user.role)
-                    AuthResult.Success(user)
-                } else {
-                    AuthResult.Error("تعذّر تحميل ملف المستخدم")
-                }
-            } else if (TokenAuthenticator.isRefreshTokenRejected(response.code())) {
-                // Refresh token expired, invalid or blacklisted → force manual login
-                tokenManager.clear()
-                AuthResult.Error("انتهت صلاحية الجلسة، سجّل دخولك مجدداً")
-            } else {
-                AuthResult.Error(SessionRefreshUnavailableException.NO_CONNECTION_MESSAGE)
-            }
-        } catch (e: Exception) {
-            AuthResult.Error(networkMessage(e))
-        }
     }
 
     private fun parseErrorMessage(body: String?): String {

@@ -44,6 +44,7 @@ import com.yawmiyati.app.data.api.AssignmentResponse
 import com.yawmiyati.app.ui.components.EmptyState
 import com.yawmiyati.app.ui.components.ErrorMessage
 import com.yawmiyati.app.ui.components.LoadingIndicator
+import com.yawmiyati.app.ui.components.rememberWageAcknowledgeGate
 import com.yawmiyati.app.ui.utils.formatArabicDate
 import com.yawmiyati.app.ui.utils.formatArabicTime
 import com.yawmiyati.app.ui.utils.formatArabicWage
@@ -64,6 +65,7 @@ fun WorkerAssignmentsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     var disputingObligationId by remember { mutableStateOf<String?>(null) }
+    val acknowledge = rememberWageAcknowledgeGate { id, password -> viewModel.acknowledgeWage(id, password) }
     var disputeReason by remember { mutableStateOf("") }
 
     LaunchedEffect(actionState) {
@@ -152,7 +154,7 @@ fun WorkerAssignmentsScreen(
                             onAccept  = { viewModel.acceptAssignment(assignment.id) },
                             onDecline = { viewModel.declineAssignment(assignment.id) },
                             onManage  = { onManageAssignment(assignment.id, assignment.workerPhone, assignment.businessPhone ?: "", assignment.status) },
-                            onAcknowledgeWage = { oblId -> viewModel.acknowledgeWage(oblId) },
+                            onAcknowledgeWage = { oblId -> acknowledge(oblId) },
                             onDisputeWage = { oblId -> disputingObligationId = oblId }
                         )
                     }

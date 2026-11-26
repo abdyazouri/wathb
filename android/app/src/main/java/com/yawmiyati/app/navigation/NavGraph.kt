@@ -213,7 +213,6 @@ fun YawmiyatiNavGraph() {
             }
             BusinessProfileScreen(
                 onBack    = { navController.popBackStack() },
-                onLockApp = { authVm.lockApp(); navigateToLogin() },
                 onLogout  = { authVm.logout(); navigateToLogin() }
             )
         }

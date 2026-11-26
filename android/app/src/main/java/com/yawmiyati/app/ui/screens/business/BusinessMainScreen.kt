@@ -54,10 +54,6 @@ fun BusinessMainScreen(
                 2 -> WageObligationsScreen()
                 3 -> BusinessProfileScreen(
                     onBack    = {},
-                    onLockApp = {
-                        authViewModel.lockApp()
-                        onLogout()
-                    },
                     onLogout  = {
                         authViewModel.logout()
                         onLogout()

@@ -31,13 +31,18 @@ class AuthRepositoryTest {
     // These JVM tests verify the data-model contract only.
 
     @Test
-    fun `lockApp RefreshRequest is not constructed — no body to send`() {
-        // lockApp() is synchronous and takes no refresh token argument.
-        // Verified by the signature: AuthRepository.lockApp() returns Unit with no params.
-        val method = com.yawmiyati.app.data.auth.AuthRepository::class.java
-            .declaredMethods.firstOrNull { it.name == "lockApp" }
-        assertTrue("lockApp method must exist", method != null)
-        assertEquals("lockApp must take no parameters", 0, method!!.parameterCount)
+    fun `no session can be restored without the password`() {
+        // The lock/fingerprint login kept a refresh token for a login that skipped the
+        // password. Make sure nothing like it comes back.
+        val gone = mapOf(
+            com.yawmiyati.app.data.auth.AuthRepository::class.java to listOf("lockApp", "refreshSession"),
+            com.yawmiyati.app.data.auth.TokenManager::class.java to listOf("softLogout", "isBiometricEligible"),
+            com.yawmiyati.app.viewmodels.AuthViewModel::class.java to listOf("lockApp", "loginWithBiometric"),
+        )
+        for ((cls, names) in gone) {
+            val present = cls.declaredMethods.map { it.name }.filter { it in names }
+            assertTrue("${cls.simpleName} still has $present", present.isEmpty())
+        }
     }
 
     @Test

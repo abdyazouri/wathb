@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yawmiyati.app.ui.components.ConfirmCancelDialog
+import com.yawmiyati.app.ui.components.rememberWageAcknowledgeGate
 import com.yawmiyati.app.viewmodels.WorkerAssignmentActionState
 import com.yawmiyati.app.viewmodels.WorkerAssignmentDetailViewModel
 import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
@@ -62,6 +63,7 @@ fun WorkerAssignmentDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showCancelDialog by remember { mutableStateOf(false) }
     var showDisputeDialog by remember { mutableStateOf(false) }
+    val acknowledge = rememberWageAcknowledgeGate { id, password -> viewModel.acknowledgeWage(id, password) }
     var disputeReason by remember { mutableStateOf("") }
 
     val wages by viewModel.wagesForAssignment.collectAsState()
@@ -227,7 +229,7 @@ fun WorkerAssignmentDetailScreen(
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(
-                                        onClick = { viewModel.acknowledgeWage(wage.id) },
+                                        onClick = { acknowledge(wage.id) },
                                         enabled = !isLoading,
                                         modifier = Modifier.weight(1f)
                                     ) { Text("تأكيد الاستلام") }

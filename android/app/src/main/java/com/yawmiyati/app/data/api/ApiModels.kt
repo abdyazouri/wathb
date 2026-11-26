@@ -424,6 +424,10 @@ data class NotificationResponse(
 
 // ── Admin verify declaration ───────────────────────────────────────────────────
 
+/** Body of POST wages/{id}/acknowledge/. [password] only when the phone has neither a
+ *  fingerprint nor a screen lock; null is left out of the JSON (device prompt passed). */
+data class AcknowledgePaymentRequest(val password: String? = null)
+
 // Sent to admin verify endpoint
 data class AdminVerifyDeclarationRequest(
     val action: String,  // "verify" or "reject"

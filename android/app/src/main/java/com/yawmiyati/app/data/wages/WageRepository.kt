@@ -2,6 +2,7 @@ package com.yawmiyati.app.data.wages
 
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.yawmiyati.app.data.api.AcknowledgePaymentRequest
 import com.yawmiyati.app.data.api.AdminVerifyDeclarationRequest
 import com.yawmiyati.app.data.api.ApiClient
 import com.yawmiyati.app.data.api.DeclarePaymentRequest
@@ -41,9 +42,10 @@ open class WageRepository {
         } catch (e: Exception) { WageResult.Error(networkMessage(e)) }
     }
 
-    open suspend fun acknowledgePayment(id: String): WageResult<WageObligationResponse> {
+    /** [password] is set only when the phone could not run BiometricPrompt. */
+    open suspend fun acknowledgePayment(id: String, password: String? = null): WageResult<WageObligationResponse> {
         return try {
-            val response = api.acknowledgePayment(id)
+            val response = api.acknowledgePayment(id, AcknowledgePaymentRequest(password))
             if (response.isSuccessful) WageResult.Success(response.body()!!)
             else WageResult.Error(parseError(response.errorBody()?.string()), response.code() == 401)
         } catch (e: Exception) { WageResult.Error(networkMessage(e)) }

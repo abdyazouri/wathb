@@ -23,7 +23,10 @@ interface WagesApi {
     ): Response<PaymentDeclarationResponse>
 
     @POST("wages/{id}/acknowledge/")
-    suspend fun acknowledgePayment(@Path("id") id: String): Response<WageObligationResponse>
+    suspend fun acknowledgePayment(
+        @Path("id") id: String,
+        @Body request: AcknowledgePaymentRequest
+    ): Response<WageObligationResponse>
 
     @POST("wages/{id}/dispute-payment/")
     suspend fun disputePayment(
