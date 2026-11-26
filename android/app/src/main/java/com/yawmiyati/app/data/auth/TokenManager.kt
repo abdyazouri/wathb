@@ -40,12 +40,24 @@ class TokenManager(context: Context) : TokenStore {
 
     fun isLoggedIn(): Boolean = getAccessToken() != null
 
+    /**
+     * The user chose to open the app with fingerprint/face (or the screen lock).
+     * Kept with the session in encrypted prefs and wiped by [clear], so after logging out
+     * or an expired session the password is needed again.
+     */
+    fun isBiometricLoginEnabled(): Boolean = prefs.getBoolean(KEY_BIOMETRIC_LOGIN, false)
+
+    fun setBiometricLoginEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BIOMETRIC_LOGIN, enabled).apply()
+    }
+
     /** Full logout — clears everything. */
     override fun clear() {
         prefs.edit()
             .remove(KEY_ACCESS)
             .remove(KEY_REFRESH)
             .remove(KEY_ROLE)
+            .remove(KEY_BIOMETRIC_LOGIN)
             .apply()
     }
 
@@ -53,5 +65,6 @@ class TokenManager(context: Context) : TokenStore {
         private const val KEY_ACCESS  = "access_token"
         private const val KEY_REFRESH = "refresh_token"
         private const val KEY_ROLE    = "user_role"
+        private const val KEY_BIOMETRIC_LOGIN = "biometric_login_enabled"
     }
 }

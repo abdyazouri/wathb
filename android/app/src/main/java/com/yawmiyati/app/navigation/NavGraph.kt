@@ -22,22 +22,27 @@ import com.yawmiyati.app.ui.screens.business.JobCreateScreen
 import com.yawmiyati.app.ui.screens.worker.JobDetailScreen
 import com.yawmiyati.app.ui.screens.worker.WorkerAssignmentDetailScreen
 import com.yawmiyati.app.ui.screens.worker.WorkerMainScreen
+import com.yawmiyati.app.ui.screens.auth.UnlockScreen
+
+/** A saved session opens behind the fingerprint/face lock when the user turned it on. */
+fun startRouteFor(isLoggedIn: Boolean, biometricLogin: Boolean, homeRoute: String): String = when {
+    !isLoggedIn -> Screen.Login.route
+    biometricLogin -> Screen.Unlock.route
+    else -> homeRoute
+}
 
 @Composable
 fun YawmiyatiNavGraph() {
     val navController = rememberNavController()
     val tokenManager = YawmiyatiApp.instance.tokenManager
 
-    val startDestination = if (tokenManager.isLoggedIn()) {
-        when (tokenManager.getRole()) {
-            "WORKER"   -> Screen.WorkerHome.route
-            "BUSINESS" -> Screen.BusinessHome.route
-            "ADMIN"    -> Screen.AdminVerification.route
-            else       -> Screen.Login.route
-        }
-    } else {
-        Screen.Login.route
+    val homeRoute = when (tokenManager.getRole()) {
+        "WORKER"   -> Screen.WorkerHome.route
+        "BUSINESS" -> Screen.BusinessHome.route
+        "ADMIN"    -> Screen.AdminVerification.route
+        else       -> Screen.Login.route
     }
+    val startDestination = startRouteFor(tokenManager.isLoggedIn(), tokenManager.isBiometricLoginEnabled(), homeRoute)
 
     LaunchedEffect(Unit) {
         SessionEventBus.sessionExpired.collect {
@@ -63,6 +68,20 @@ fun YawmiyatiNavGraph() {
                     }
                 },
                 onNavigateToRegister = { navController.navigate(Screen.Consent.route) }
+            )
+        }
+
+        composable(Screen.Unlock.route) {
+            val authVm: com.yawmiyati.app.viewmodels.AuthViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            UnlockScreen(
+                onUnlocked = {
+                    navController.navigate(homeRoute) { popUpTo(Screen.Unlock.route) { inclusive = true } }
+                },
+                onUsePassword = {
+                    // Leave the saved session entirely; the password login starts a new one.
+                    authVm.logout()
+                    navController.navigate(Screen.Login.route) { popUpTo(Screen.Unlock.route) { inclusive = true } }
+                }
             )
         }
 

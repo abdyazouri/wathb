@@ -31,9 +31,9 @@ class AuthRepositoryTest {
     // These JVM tests verify the data-model contract only.
 
     @Test
-    fun `no session can be restored without the password`() {
-        // The lock/fingerprint login kept a refresh token for a login that skipped the
-        // password. Make sure nothing like it comes back.
+    fun `the old fingerprint login that skipped the prompt is gone`() {
+        // It kept a refresh token after "lock" and logged in from it without any prompt.
+        // Fingerprint/face login now only unlocks a live session after BiometricPrompt.
         val gone = mapOf(
             com.yawmiyati.app.data.auth.AuthRepository::class.java to listOf("lockApp", "refreshSession"),
             com.yawmiyati.app.data.auth.TokenManager::class.java to listOf("softLogout", "isBiometricEligible"),

@@ -49,6 +49,7 @@ import com.yawmiyati.app.viewmodels.DeleteAccountState
 import com.yawmiyati.app.viewmodels.WorkerProfileSaveState
 import com.yawmiyati.app.viewmodels.WorkerProfileUiState
 import com.yawmiyati.app.viewmodels.WorkerProfileViewModel
+import com.yawmiyati.app.ui.components.BiometricLoginSwitch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -200,6 +201,8 @@ fun WorkerProfileScreen(
                         }
                     }
 
+                    Spacer(Modifier.height(8.dp))
+                    BiometricLoginSwitch(authViewModel)
                     Spacer(Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = { showDeleteDialog = true },

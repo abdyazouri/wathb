@@ -35,6 +35,16 @@ class AuthViewModel : ViewModel() {
     private val _deleteState = MutableStateFlow<DeleteAccountState>(DeleteAccountState.Idle)
     val deleteState: StateFlow<DeleteAccountState> = _deleteState
 
+    private val _biometricLoginEnabled = MutableStateFlow(tokenManager.isBiometricLoginEnabled())
+    /** Open the app with fingerprint/face; see [com.yawmiyati.app.ui.screens.auth.UnlockScreen]. */
+    val biometricLoginEnabled: StateFlow<Boolean> = _biometricLoginEnabled
+
+    /** Call with true only after a BiometricPrompt succeeded. */
+    fun setBiometricLogin(enabled: Boolean) {
+        tokenManager.setBiometricLoginEnabled(enabled)
+        _biometricLoginEnabled.value = enabled
+    }
+
     fun login(phone: String, password: String) {
         if (phone.isBlank() || password.isBlank()) {
             _uiState.value = AuthUiState.Error("يرجى إدخال رقم الهاتف وكلمة المرور")
@@ -89,6 +99,7 @@ class AuthViewModel : ViewModel() {
     fun logout() {
         viewModelScope.launch {
             repository.logout()
+            _biometricLoginEnabled.value = false  // clear() wiped it with the session
             _uiState.value = AuthUiState.LoggedOut
         }
     }

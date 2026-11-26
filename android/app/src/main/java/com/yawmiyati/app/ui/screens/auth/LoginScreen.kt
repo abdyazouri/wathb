@@ -45,6 +45,10 @@ import com.yawmiyati.app.ui.theme.WathbGold
 import com.yawmiyati.app.ui.theme.WathbTeal
 import com.yawmiyati.app.viewmodels.AuthUiState
 import com.yawmiyati.app.viewmodels.AuthViewModel
+import com.yawmiyati.app.ui.components.findFragmentActivity
+import com.yawmiyati.app.data.auth.BiometricHelper
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.AlertDialog
 
 @Composable
 fun LoginScreen(
@@ -57,9 +61,41 @@ fun LoginScreen(
     var phone    by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
+    val context = LocalContext.current
+    // After a password login: offer fingerprint/face for next time (once per login).
+    var offerBiometricFor by remember { mutableStateOf<String?>(null) }
+    offerBiometricFor?.let { role ->
+        val finish = { offerBiometricFor = null; onLoginSuccess(role) }
+        AlertDialog(
+            onDismissRequest = finish,
+            title = { Text("الدخول بالبصمة") },
+            text = { Text("هل تريد فتح التطبيق ببصمتك أو وجهك في المرات القادمة بدل كلمة المرور؟") },
+            confirmButton = {
+                Button(onClick = {
+                    val activity = context.findFragmentActivity()
+                    if (activity == null) finish() else BiometricHelper.prompt(
+                        activity = activity,
+                        title = "تفعيل الدخول بالبصمة",
+                        subtitle = "أكّد ببصمتك أو وجهك أو قفل الشاشة",
+                        onSuccess = { viewModel.setBiometricLogin(true); finish() },
+                        onError = { finish() }
+                    )
+                }) { Text("تفعيل") }
+            },
+            dismissButton = { TextButton(onClick = finish) { Text("ليس الآن") } }
+        )
+    }
+
     LaunchedEffect(uiState) {
         when (val state = uiState) {
-            is AuthUiState.Success -> { viewModel.resetState(); onLoginSuccess(state.user.role) }
+            is AuthUiState.Success -> {
+                viewModel.resetState()
+                if (BiometricHelper.isAvailable(context) && !viewModel.biometricLoginEnabled.value) {
+                    offerBiometricFor = state.user.role
+                } else {
+                    onLoginSuccess(state.user.role)
+                }
+            }
             is AuthUiState.Error   -> { snackbarHostState.showSnackbar(state.message); viewModel.resetState() }
             else -> {}
         }
