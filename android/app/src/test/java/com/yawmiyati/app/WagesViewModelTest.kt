@@ -43,7 +43,7 @@ class WagesViewModelTest {
 
     private fun fakeDeclaration(id: String, obligationId: String) = PaymentDeclarationResponse(
         id = id, wageObligation = obligationId, declaredAmount = 10000L,
-        currency = "ILS", paymentDate = "2026-10-10", paymentMethod = "CASH",
+        currency = "ILS", paymentDate = "2026-10-10", paymentMethod = "JAWWAL_PAY",
         transactionReference = "", declaredByPhone = "+970599000002",
         declaredAt = "2026-10-10T09:00:00Z", status = "SUBMITTED", reviewNotes = ""
     )
@@ -84,7 +84,7 @@ class WagesViewModelTest {
         }
         val vm = WagesViewModel(repo)
         advanceUntilIdle()
-        vm.declarePayment("obl-1", 10000L, "2026-10-10", "CASH", "")
+        vm.declarePayment("obl-1", 10000L, "2026-10-10", "JAWWAL_PAY", "")
         advanceUntilIdle()
         assertEquals(WageActionState.Success, vm.actionState.value)
         val state = vm.uiState.value as WagesUiState.Success
@@ -101,7 +101,7 @@ class WagesViewModelTest {
         }
         val vm = WagesViewModel(repo)
         advanceUntilIdle()
-        vm.declarePayment("obl-2", 10000L, "2026-10-10", "CASH", "")
+        vm.declarePayment("obl-2", 10000L, "2026-10-10", "JAWWAL_PAY", "")
         advanceUntilIdle()
         val action = vm.actionState.value
         assertTrue(action is WageActionState.Error)
@@ -193,7 +193,7 @@ class WagesViewModelTest {
         val job = launch { SessionEventBus.sessionExpired.collect { events.add(it) } }
         val vm = WagesViewModel(repo)
         advanceUntilIdle()
-        vm.declarePayment("obl-auth", 10000L, "2026-10-11", "CASH", "")
+        vm.declarePayment("obl-auth", 10000L, "2026-10-11", "JAWWAL_PAY", "")
         advanceUntilIdle()
         assertTrue("Expected session expired event", events.isNotEmpty())
         assertTrue(vm.actionState.value is WageActionState.Idle)

@@ -136,7 +136,7 @@ class AuthRepositoryTest {
         numWorkersNeeded = 1, requiredSkills = "",
         wageAmount = 10000L, wageCurrency = "ILS", wageBasis = "PER_DAY",
         wageDisplay = "100 ILS / Per Day",
-        paymentMethod = "CASH", paymentDeadlineDays = 3,
+        paymentMethod = "JAWWAL_PAY", paymentDeadlineDays = 3,
         attendanceRequirements = "", cancellationPolicy = "", additionalConditions = "",
         status = "PUBLISHED", isFunded = false, publishedAt = null, version = 1,
         createdAt = "2026-10-10T00:00:00Z"

@@ -154,7 +154,7 @@ data class JobCreateRequest(
     @SerializedName("wage_amount") val wageAmount: Long,        // minor units
     @SerializedName("wage_currency") val wageCurrency: String = "ILS",
     @SerializedName("wage_basis") val wageBasis: String = "PER_DAY",
-    @SerializedName("payment_method") val paymentMethod: String = "CASH",
+    @SerializedName("payment_method") val paymentMethod: String,  // JAWWAL_PAY | PALPAY | BANK_OF_PALESTINE; required by the server
     @SerializedName("payment_deadline_days") val paymentDeadlineDays: Int = 3,
     @SerializedName("required_skills") val requiredSkills: String = "",
     @SerializedName("attendance_requirements") val attendanceRequirements: String = "",

@@ -140,7 +140,7 @@ class JobsViewModelTest {
         numWorkersNeeded = 1, requiredSkills = "",
         wageAmount = 15000L, wageCurrency = "ILS", wageBasis = "PER_DAY",
         wageDisplay = "150 ILS / يوم",
-        paymentMethod = "CASH", paymentDeadlineDays = 3,
+        paymentMethod = "JAWWAL_PAY", paymentDeadlineDays = 3,
         attendanceRequirements = "", cancellationPolicy = "", additionalConditions = "",
         status = "PUBLISHED", isFunded = false, publishedAt = null, version = 1,
         createdAt = "2026-10-11T00:00:00Z"

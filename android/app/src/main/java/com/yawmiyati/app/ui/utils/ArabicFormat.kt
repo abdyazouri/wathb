@@ -41,7 +41,7 @@ fun String.toArabicAmountDisplay(): String = replace("ILS", "₪").toArabicNumer
 /** wage_amount (minor units) → "٢٥٠ ₪ / يوم" */
 fun formatArabicWage(minorUnits: Long, currency: String, basis: String): String {
     val major = (minorUnits / 100).toArabic()
-    val sym = when (currency) { "ILS" -> "₪"; "USD" -> "$"; else -> currency }
+    val sym = if (currency == "ILS") "₪" else currency
     val basisAr = when (basis) {
         "PER_DAY"  -> "/ يوم"
         "PER_HOUR" -> "/ ساعة"
