@@ -348,6 +348,7 @@ class AdminStaleWageListView(APIView):
 class AdminPhoneResolveView(APIView):
     permission_classes = [IsAdminRole]
 
+    @transaction.atomic
     def patch(self, request, pk):
         action = request.data.get("action")
         notes = (request.data.get("notes") or "").strip()
@@ -381,38 +382,37 @@ class AdminPhoneResolveView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        with transaction.atomic():
-            if action == "confirmed_by_phone":
-                declaration.status = PaymentDeclarationStatus.VERIFIED
-                declaration.reviewed_by = request.user
-                declaration.reviewed_at = timezone.now()
-                declaration.review_notes = f"[تأكيد هاتفي عبر المشرف] {notes}"
-                declaration.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes"])
-                obligation.status = WageObligationStatus.VERIFIED_PAID
-                obligation.save(update_fields=["status"])
-                _log_audit(
-                    request.user, "admin_phone_confirmed", "WageObligation",
-                    str(obligation.pk), {"notes": notes}
-                )
-            else:
-                declaration.status = PaymentDeclarationStatus.DISPUTED
-                declaration.reviewed_by = request.user
-                declaration.reviewed_at = timezone.now()
-                declaration.review_notes = f"[اعتراض هاتفي عبر المشرف] {notes}"
-                declaration.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes"])
-                obligation.status = WageObligationStatus.DISPUTED
-                obligation.save(update_fields=["status"])
-                _create_dispute(
-                    raised_by=request.user,
-                    assignment=obligation.assignment,
-                    wage_obligation=obligation,
-                    category="PAYMENT_NOT_RECEIVED",
-                    description=f"[اعتراض هاتفي عبر المشرف] {notes}",
-                )
-                _log_audit(
-                    request.user, "admin_phone_disputed", "WageObligation",
-                    str(obligation.pk), {"notes": notes}
-                )
+        if action == "confirmed_by_phone":
+            declaration.status = PaymentDeclarationStatus.VERIFIED
+            declaration.reviewed_by = request.user
+            declaration.reviewed_at = timezone.now()
+            declaration.review_notes = f"[تأكيد هاتفي عبر المشرف] {notes}"
+            declaration.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes"])
+            obligation.status = WageObligationStatus.VERIFIED_PAID
+            obligation.save(update_fields=["status"])
+            _log_audit(
+                request.user, "admin_phone_confirmed", "WageObligation",
+                str(obligation.pk), {"notes": notes}
+            )
+        else:
+            declaration.status = PaymentDeclarationStatus.DISPUTED
+            declaration.reviewed_by = request.user
+            declaration.reviewed_at = timezone.now()
+            declaration.review_notes = f"[اعتراض هاتفي عبر المشرف] {notes}"
+            declaration.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes"])
+            obligation.status = WageObligationStatus.DISPUTED
+            obligation.save(update_fields=["status"])
+            _create_dispute(
+                raised_by=request.user,
+                assignment=obligation.assignment,
+                wage_obligation=obligation,
+                category="PAYMENT_NOT_RECEIVED",
+                description=f"[اعتراض هاتفي عبر المشرف] {notes}",
+            )
+            _log_audit(
+                request.user, "admin_phone_disputed", "WageObligation",
+                str(obligation.pk), {"notes": notes}
+            )
 
         return Response(WageObligationSerializer(obligation).data)
 

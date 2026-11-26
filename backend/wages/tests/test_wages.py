@@ -3,7 +3,7 @@ import io
 
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APITransactionTestCase
 
 from accounts.models import User, Role, BusinessProfile, WorkerProfile
 from assignments.models import Assignment, AssignmentStatus
@@ -519,6 +519,33 @@ class AdminPhoneResolveTests(APITestCase):
         self.obligation.save(update_fields=["status"])
         resp = self.client.patch(self.url, {"action": "confirmed_by_phone", "notes": "test"}, format="json")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class AdminPhoneResolveAutocommitTests(APITransactionTestCase):
+    """Runs in autocommit, as production does. APITestCase wraps every test in a
+    transaction, which hides a select_for_update() issued outside transaction.atomic()."""
+
+    def setUp(self):
+        self.admin = make_user("+970599016101", Role.ADMIN, is_staff=True)
+        biz_user, biz_profile = make_business("+970599016102")
+        worker_user = make_worker("+970599016103")
+        _, assignment = make_job_and_assignment(biz_profile, worker_user)
+        self.obligation = make_obligation(assignment, obligation_status=WageObligationStatus.AWAITING_ACK)
+        self.declaration = make_declaration(self.obligation, biz_user)
+        self.url = reverse("wage-admin-phone-resolve", kwargs={"pk": str(self.obligation.pk)})
+        self.client.force_authenticate(user=self.admin)
+
+    def test_confirmed_by_phone_outside_test_transaction(self):
+        resp = self.client.patch(self.url, {"action": "confirmed_by_phone", "notes": "تحدثت مع العامل"}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.VERIFIED_PAID)
+
+    def test_disputed_by_phone_outside_test_transaction(self):
+        resp = self.client.patch(self.url, {"action": "disputed_by_phone", "notes": "نفى العامل الاستلام"}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.DISPUTED)
 
 
 class AdminStaleWageListTests(APITestCase):
