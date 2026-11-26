@@ -756,7 +756,7 @@ class ListCallSideEffectTests(APITestCase):
             expected = status.HTTP_404_NOT_FOUND if url.endswith("/completion/") and not completion_recorded else status.HTTP_200_OK
             self.assertEqual(response.status_code, expected, url)
 
-    def test_auto_confirm_creates_new_wage_as_pending(self):
+    def test_auto_confirm_creates_new_wage_as_due(self):
         from assignments.models import CompletionRecord, CompletionStatus
         from django.utils import timezone as tz
         comp = CompletionRecord.objects.create(
@@ -768,12 +768,13 @@ class ListCallSideEffectTests(APITestCase):
         response = self.client.get(reverse("wage-list"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         obligation = WageObligation.objects.get(assignment=self.assignment)
-        self.assertEqual(obligation.status, WageObligationStatus.PENDING)
-        self.assertEqual([o["status"] for o in response.data["results"]], [WageObligationStatus.PENDING])
+        # Daily pay: a wage is due the moment the work is confirmed.
+        self.assertEqual(obligation.status, WageObligationStatus.DUE)
+        self.assertEqual([o["status"] for o in response.data["results"]], [WageObligationStatus.DUE])
 
         self._hit_every_list_endpoint(completion_recorded=True)
         obligation.refresh_from_db()
-        self.assertEqual(obligation.status, WageObligationStatus.PENDING)
+        self.assertEqual(obligation.status, WageObligationStatus.DUE)
         self.assertEqual(WageObligation.objects.filter(assignment=self.assignment).count(), 1)
         self.assertFalse(obligation.declarations.exists())
 

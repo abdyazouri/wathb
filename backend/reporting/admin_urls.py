@@ -4,7 +4,7 @@ from accounts.views import AdminBusinessListView, AdminBusinessVerifyView, Admin
 from audit.views import AuditLogView
 from disputes.urls import admin_urlpatterns as dispute_admin_urls
 from funding.urls import admin_urlpatterns as funding_admin_urls
-from wages.views import AdminStaleWageListView
+from wages.views import AdminStaleWageListView, AdminUnpaidWageListView
 
 urlpatterns = [
     path("businesses/", AdminBusinessListView.as_view(), name="admin-business-list"),
@@ -15,4 +15,5 @@ urlpatterns = [
     path("reports/pilot-summary/", PilotSummaryView.as_view(), name="admin-pilot-summary"),
     path("reports/pilot-summary/export/", PilotSummaryExportView.as_view(), name="admin-pilot-summary-export"),
     path("disputes/stale-wages/", AdminStaleWageListView.as_view(), name="admin-stale-wages"),
+    path("disputes/unpaid-wages/", AdminUnpaidWageListView.as_view(), name="admin-unpaid-wages"),
 ] + dispute_admin_urls + funding_admin_urls

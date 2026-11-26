@@ -23,6 +23,8 @@ class NotificationType(models.TextChoices):
     COMPLETION_SUBMITTED = "COMPLETION_SUBMITTED", "تسجيل إتمام العمل"
     WAGE_REMINDER_1D = "WAGE_REMINDER_1D", "تذكير بإقرار الأجر (يوم)"
     WAGE_REMINDER_3D = "WAGE_REMINDER_3D", "تذكير بإقرار الأجر (٣ أيام)"
+    WAGE_UNPAID_1D = "WAGE_UNPAID_1D", "تذكير بدفع الأجر (يوم)"
+    WAGE_UNPAID_3D = "WAGE_UNPAID_3D", "تذكير بدفع الأجر (٣ أيام)"
     ATTENDANCE_AUTO_CONFIRMED = "ATTENDANCE_AUTO_CONFIRMED", "تأكيد تلقائي للحضور"
     COMPLETION_AUTO_CONFIRMED = "COMPLETION_AUTO_CONFIRMED", "تأكيد تلقائي لإتمام العمل"
 

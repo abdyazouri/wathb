@@ -228,7 +228,7 @@ class CompletionTests(APITestCase):
     def setUp(self):
         self.biz_user, self.biz_profile = make_business()
         self.worker = make_worker()
-        self.job = make_job(self.biz_profile)
+        self.job = make_job(self.biz_profile, work_date=timezone.localdate())  # the work day
         self.assignment = make_assignment(
             self.job, self.worker, assign_status=AssignmentStatus.ACCEPTED
         )
@@ -243,9 +243,9 @@ class CompletionTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_duplicate_completion_submission_returns_409(self):
+    def test_completion_already_recorded_by_the_other_party_returns_409(self):
         CompletionRecord.objects.create(
-            assignment=self.assignment, submitted_by=self.worker,
+            assignment=self.assignment, submitted_by=self.biz_user,
             status=CompletionStatus.SUBMITTED,
         )
         self.client.force_authenticate(user=self.worker)
@@ -366,7 +366,7 @@ class AutoConfirmTests(APITestCase):
     def setUp(self):
         self.biz_user, self.biz_profile = make_business()
         self.worker = make_worker()
-        self.job = make_job(self.biz_profile)
+        self.job = make_job(self.biz_profile, work_date=timezone.localdate())  # the work day
         self.assignment = make_assignment(
             self.job, self.worker, assign_status=AssignmentStatus.ACCEPTED
         )

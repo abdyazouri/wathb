@@ -7,13 +7,15 @@ class WageObligationSerializer(serializers.ModelSerializer):
     worker_phone = serializers.CharField(source="assignment.worker.phone", read_only=True)
     worker_name = serializers.SerializerMethodField()
     job_title = serializers.CharField(source="assignment.job.title", read_only=True)
+    business_name = serializers.CharField(source="assignment.job.business.legal_name", read_only=True)
+    business_phone = serializers.CharField(source="assignment.job.business.user.phone", read_only=True)
     amount_display = serializers.SerializerMethodField()
     declarations = serializers.SerializerMethodField()
 
     class Meta:
         model = WageObligation
         fields = [
-            "id", "assignment", "worker_phone", "worker_name", "job_title",
+            "id", "assignment", "worker_phone", "worker_name", "job_title", "business_name", "business_phone",
             "amount", "currency", "amount_display", "due_date", "status", "created_at",
             "declarations",
         ]

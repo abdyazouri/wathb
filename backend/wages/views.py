@@ -403,6 +403,21 @@ class AdminStaleWageListView(APIView):
         return Response(WageObligationSerializer(obligations, many=True).data)
 
 
+class AdminUnpaidWageListView(APIView):
+    """Wages due for 3+ days with no payment declared: the business got both reminders."""
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        cutoff = timezone.now() - datetime.timedelta(days=3)
+        obligations = WageObligation.objects.filter(
+            status__in=[WageObligationStatus.PENDING, WageObligationStatus.DUE],
+            created_at__lte=cutoff,
+        ).select_related(
+            "assignment", "assignment__worker", "assignment__job", "assignment__job__business__user"
+        ).prefetch_related("declarations").order_by("created_at")
+        return Response(WageObligationSerializer(obligations, many=True).data)
+
+
 class AdminPhoneResolveView(APIView):
     permission_classes = [IsAdminRole]
 

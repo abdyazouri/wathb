@@ -329,15 +329,27 @@ class CompletionView(APIView):
 
     @transaction.atomic
     def post(self, request, pk):
+        """The worker's «أتممت يوم عملي واطلب أجري» (or the business recording completion).
+        Idempotent for the same user; refused before the work date (Gaza time)."""
+        if request.user.role == Role.ADMIN:
+            return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
         assignment = self._get_assignment(request, pk)
         if assignment is None:
             return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
+        assignment = Assignment.objects.select_for_update().select_related("job__business__user", "worker").get(pk=assignment.pk)
+
+        existing = CompletionRecord.objects.filter(assignment=assignment).first()
+        if existing is not None:
+            if existing.submitted_by_id == request.user.pk:
+                # Second press: nothing changes, no second notification.
+                return Response(CompletionRecordSerializer(existing).data)
+            return Response({"detail": "تم تسجيل إتمام العمل لهذه المهمة مسبقاً."}, status=status.HTTP_409_CONFLICT)
 
         if assignment.status not in (AssignmentStatus.ACCEPTED, AssignmentStatus.ACTIVE):
             return Response({"detail": "يمكن تسجيل إتمام العمل للمهام المقبولة أو النشطة فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if CompletionRecord.objects.filter(assignment=assignment).exists():
-            return Response({"detail": "تم تسجيل إتمام العمل لهذه المهمة مسبقاً."}, status=status.HTTP_409_CONFLICT)
+        if timezone.localdate() < assignment.job.work_date:
+            return Response({"detail": "لا يمكن طلب الأجر قبل يوم العمل."}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = CompletionSubmitSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -349,10 +361,12 @@ class CompletionView(APIView):
         worker = assignment.worker
         biz_user = assignment.job.business.user
         if request.user == worker:
+            amount = format_money(assignment.terms_snapshot.get("wage_amount", assignment.job.wage_amount))
             _notify(
                 biz_user, "COMPLETION_SUBMITTED",
-                f"طلب إنهاء العمل: {assignment.job.title}",
-                "أرسل العامل طلب تأكيد إنهاء العمل. بانتظار موافقتك خلال 24 ساعة.",
+                f"العامل يطلب أجره: {assignment.job.title}",
+                f"أتمّ العامل يوم العمل ويطلب أجره {amount}. اختر «تأكيد ودفع الأجر» أو «لم يتم العمل». "
+                "إن لم ترد خلال ٢٤ ساعة يتأكد الإتمام تلقائيًا.",
                 "Assignment", str(assignment.pk),
             )
         else:
@@ -362,7 +376,7 @@ class CompletionView(APIView):
                 "قدّم صاحب العمل سجل الإتمام. بانتظار تأكيدك خلال 24 ساعة.",
                 "Assignment", str(assignment.pk),
             )
-
+        _audit(request.user, "completion_submitted", "CompletionRecord", record.pk, {"by": request.user.role})
         return Response(CompletionRecordSerializer(record).data, status=status.HTTP_201_CREATED)
 
     def _get_assignment(self, request, pk):
@@ -389,9 +403,8 @@ class CompletionConfirmView(APIView):
                 assignment = Assignment.objects.get(pk=pk, worker=user)
             elif user.role == Role.BUSINESS:
                 assignment = Assignment.objects.get(pk=pk, job__business__user=user)
-            elif user.role == Role.ADMIN:
-                assignment = Assignment.objects.get(pk=pk)
             else:
+                # Only the other party confirms; admins see it but settle through disputes.
                 return Response({"detail": "ليس لديك صلاحية للقيام بهذا الإجراء."}, status=status.HTTP_403_FORBIDDEN)
             record = assignment.completion_record
         except (Assignment.DoesNotExist, CompletionRecord.DoesNotExist):
@@ -400,7 +413,7 @@ class CompletionConfirmView(APIView):
         if record.status != CompletionStatus.SUBMITTED:
             return Response({"detail": "يمكن تأكيد الإتمام الذي بانتظار التأكيد فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if record.submitted_by == user and user.role != Role.ADMIN:
+        if record.submitted_by == user:
             return Response({"detail": "لا يمكنك تأكيد إتمام سجّلته أنت."}, status=status.HTTP_400_BAD_REQUEST)
 
         record.status = CompletionStatus.CONFIRMED
@@ -412,6 +425,7 @@ class CompletionConfirmView(APIView):
         assignment.save(update_fields=["status"])
 
         _create_wage_obligation(assignment)
+        _audit(user, "completion_confirmed", "CompletionRecord", record.pk, {"by": user.role})
 
         _notify(
             assignment.worker, "COMPLETION_CONFIRMED",
@@ -423,9 +437,14 @@ class CompletionConfirmView(APIView):
         return Response(CompletionRecordSerializer(record).data)
 
 
+# «لم يتم العمل» reasons a business can give for a worker's wage request.
+BUSINESS_COMPLETION_DISPUTE_CATEGORIES = ("WORKER_NO_SHOW", "WORK_INCOMPLETE")
+
+
 class CompletionDisputeView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def patch(self, request, pk):
         user = request.user
         try:
@@ -448,8 +467,30 @@ class CompletionDisputeView(APIView):
         if record.status != CompletionStatus.SUBMITTED:
             return Response({"detail": "يمكن الاعتراض على الإتمام الذي بانتظار التأكيد فقط."}, status=status.HTTP_400_BAD_REQUEST)
 
+        category = None
+        if user.role == Role.BUSINESS:
+            # «لم يتم العمل»: the reason is required and goes to the admin as a dispute.
+            category = request.data.get("category")
+            if category not in BUSINESS_COMPLETION_DISPUTE_CATEGORIES:
+                return Response(
+                    {"detail": "اختر السبب: العامل لم يحضر أو العمل لم يكتمل."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         record.status = CompletionStatus.DISPUTED
         record.save(update_fields=["status"])
+
+        if category is not None:
+            from disputes.models import Dispute, DisputeEvent
+            description = (request.data.get("description") or "").strip()
+            dispute = Dispute.objects.create(
+                category=category,
+                assignment=assignment,
+                raised_by=user,
+                description=description or "أبلغ صاحب العمل أن العمل لم يتم.",
+            )
+            DisputeEvent.objects.create(dispute=dispute, actor=user, action="opened", notes=description[:500])
+        _audit(user, "completion_disputed", "CompletionRecord", record.pk, {"by": user.role, "category": category})
 
         worker = assignment.worker
         biz_user = assignment.job.business.user
@@ -493,21 +534,35 @@ class BusinessCompleteAssignmentView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if datetime.date.today() < assignment.job.work_date:
+        if timezone.localdate() < assignment.job.work_date:
             return Response(
                 {"detail": "لا يمكن تأكيد الإتمام قبل يوم العمل."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not CompletionRecord.objects.filter(assignment=assignment).exists():
-            now = timezone.now()
-            CompletionRecord.objects.create(
+        now = timezone.now()
+        record = CompletionRecord.objects.select_for_update().filter(assignment=assignment).first()
+        if record is None:
+            # The worker did not press «أتممت يوم عملي»; the business records it.
+            record = CompletionRecord.objects.create(
                 assignment=assignment,
                 submitted_by=request.user,
                 status=CompletionStatus.CONFIRMED,
                 confirmed_by=request.user,
                 confirmed_at=now,
             )
+        elif record.status == CompletionStatus.SUBMITTED:
+            # «تأكيد ودفع الأجر» on the worker's request.
+            record.status = CompletionStatus.CONFIRMED
+            record.confirmed_by = request.user
+            record.confirmed_at = now
+            record.save(update_fields=["status", "confirmed_by", "confirmed_at"])
+        elif record.status == CompletionStatus.DISPUTED:
+            return Response(
+                {"detail": "يوجد نزاع مفتوح على إتمام هذه المهمة، ويتابعه المشرف."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        _audit(request.user, "completion_confirmed", "CompletionRecord", record.pk, {"by": request.user.role})
 
         assignment.status = AssignmentStatus.COMPLETED
         assignment.save(update_fields=["status"])
@@ -517,7 +572,7 @@ class BusinessCompleteAssignmentView(APIView):
         from wages.models import WageObligation, WageObligationStatus, PaymentDeclaration
         obligation = WageObligation.objects.get(assignment=assignment)
 
-        if obligation.status == WageObligationStatus.PENDING:
+        if obligation.status in (WageObligationStatus.PENDING, WageObligationStatus.DUE):
             snapshot = assignment.terms_snapshot
             PaymentDeclaration.objects.create(
                 wage_obligation=obligation,
@@ -549,6 +604,13 @@ class BusinessCompleteAssignmentView(APIView):
         return Response(AssignmentSerializer(assignment).data)
 
 
+def _audit(actor, action, model_name, object_id, details=None):
+    from audit.models import AuditEvent
+    AuditEvent.objects.create(
+        actor=actor, action=action, model_name=model_name, object_id=str(object_id), details=details or {},
+    )
+
+
 def _notify(recipient, notification_type, title, body, related_model, related_id):
     try:
         from notifications.models import Notification
@@ -578,15 +640,21 @@ def _create_wage_obligation(assignment):
     # Wathb pays daily: the wage is due the day the work is confirmed finished.
     due_date = timezone.localdate()
 
+    from wages.models import WageObligationStatus
     try:
-        WageObligation.objects.create(
-            assignment=assignment,
-            amount=wage_amount,
-            currency=wage_currency,
-            due_date=due_date,
-        )
+        # The amount comes only from the agreed terms, in integer agorot.
+        with transaction.atomic():  # savepoint: callers are often inside a transaction
+            obligation = WageObligation.objects.create(
+                assignment=assignment,
+                amount=int(wage_amount),
+                currency=wage_currency,
+                due_date=due_date,
+                status=WageObligationStatus.DUE,
+            )
     except IntegrityError:
-        pass
+        return
+    _audit(None, "wage_created", "WageObligation", obligation.pk,
+           {"amount": obligation.amount, "assignment_id": str(assignment.pk)})
 
 
 def _auto_confirm_pending(assignment):

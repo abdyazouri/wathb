@@ -11,6 +11,23 @@ class AssignmentSerializer(serializers.ModelSerializer):
     business_phone = serializers.CharField(source="job.business.user.phone", read_only=True)
     wage_obligation_id = serializers.SerializerMethodField()
     changed_terms = serializers.SerializerMethodField()
+    completion_status = serializers.SerializerMethodField()
+    completion_requested_by_worker = serializers.SerializerMethodField()
+
+    def _completion(self, obj):
+        try:
+            return obj.completion_record
+        except Exception:
+            return None
+
+    def get_completion_status(self, obj):
+        record = self._completion(obj)
+        return record.status if record else None
+
+    def get_completion_requested_by_worker(self, obj):
+        """True when the worker pressed «أتممت يوم عملي واطلب أجري»."""
+        record = self._completion(obj)
+        return bool(record and record.submitted_by_id == obj.worker_id)
 
     def get_changed_terms(self, obj):
         """On an offer: which terms the business changed since the worker applied."""
@@ -48,7 +65,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
         model = Assignment
         fields = [
             "id", "job", "job_title", "worker_phone", "worker_name", "business_name", "business_phone",
-            "wage_obligation_id", "changed_terms",
+            "wage_obligation_id", "changed_terms", "completion_status", "completion_requested_by_worker",
             "job_work_date", "job_start_time", "job_end_time",
             "job_location_city", "job_location_address",
             "job_wage_amount", "job_wage_currency", "job_wage_basis",

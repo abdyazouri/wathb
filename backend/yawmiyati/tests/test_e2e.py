@@ -111,7 +111,8 @@ class ScenarioAHappyPath(APITestCase):
         # Step 4: Snapshot captured and contains correct wage
         self.assertEqual(assignment.terms_snapshot["wage_amount"], 10000)
 
-        # Step 5: Worker submits completion
+        # Step 5: The work day comes; the worker requests the wage
+        JobListing.objects.filter(pk=self.job.pk).update(work_date=datetime.date.today())
         r = self.client.post(
             reverse("completion", args=[assignment.pk]),
             {"notes": "Work done"},
@@ -125,7 +126,7 @@ class ScenarioAHappyPath(APITestCase):
         assignment.refresh_from_db()
         self.assertEqual(assignment.status, AssignmentStatus.COMPLETED)
         obligation = WageObligation.objects.get(assignment=assignment)
-        self.assertEqual(obligation.status, WageObligationStatus.PENDING)
+        self.assertEqual(obligation.status, WageObligationStatus.DUE)  # daily pay: due once the work is confirmed
         self.assertEqual(obligation.amount, 10000)
 
         # Step 7: Business declares payment
