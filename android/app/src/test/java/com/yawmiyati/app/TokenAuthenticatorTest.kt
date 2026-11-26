@@ -1,20 +1,26 @@
 package com.yawmiyati.app
 
 import com.yawmiyati.app.data.api.AuthApi
+import com.yawmiyati.app.data.api.SessionRefreshUnavailableException
 import com.yawmiyati.app.data.api.TokenAuthenticator
 import com.yawmiyati.app.data.auth.SessionEventBus
 import com.yawmiyati.app.data.auth.TokenStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.fail
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -33,13 +39,18 @@ class TokenAuthenticatorTest {
     @Before
     fun setUp() {
         server.start()
-
         fakeTokenStore = FakeTokenStore(access = "stale_token", refresh = "refresh_token")
+        client = buildClient(refreshBaseUrl = server.url("/"))
+    }
 
+    /** Main client whose authenticator refreshes against [refreshBaseUrl]. */
+    private fun buildClient(refreshBaseUrl: HttpUrl): OkHttpClient {
         // Separate refresh client — no authenticator to avoid recursion.
-        val refreshClient = OkHttpClient.Builder().build()
+        val refreshClient = OkHttpClient.Builder()
+            .readTimeout(1, TimeUnit.SECONDS)
+            .build()
         val refreshApi = Retrofit.Builder()
-            .baseUrl(server.url("/"))
+            .baseUrl(refreshBaseUrl)
             .client(refreshClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
@@ -51,7 +62,7 @@ class TokenAuthenticatorTest {
             mutex = Mutex()
         )
 
-        client = OkHttpClient.Builder()
+        return OkHttpClient.Builder()
             .authenticator(authenticator)
             .addInterceptor { chain ->
                 val token = fakeTokenStore.getAccessToken()
@@ -156,6 +167,121 @@ class TokenAuthenticatorTest {
 
         assertTrue(fakeTokenStore.clearCalled)
         assertEquals(1, sessionExpiredCount.get())
+    }
+
+    /** (د) تحديث الرمز يُرجع 400 (رمز غير صالح أو محظور) → مسح الجلسة */
+    @Test
+    fun `refresh 400 clears tokens and emits sessionExpired`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(401).setBody(""))
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"detail":"bad token"}"""))
+
+        val expired = countSessionExpired {
+            client.newCall(Request.Builder().url(server.url("/api/")).build()).execute().close()
+        }
+
+        assertTrue(fakeTokenStore.clearCalled)
+        assertEquals(1, expired)
+    }
+
+    /** (هـ) لا اتصال أثناء التحديث → تبقى الجلسة ورسالة عربية */
+    @Test
+    fun `refresh network error keeps session and throws Arabic no-connection error`() = runBlocking {
+        val dead = MockWebServer().apply { start() }
+        val deadUrl = dead.url("/")
+        dead.shutdown()  // connection refused from now on
+        client = buildClient(refreshBaseUrl = deadUrl)
+        server.enqueue(MockResponse().setResponseCode(401).setBody(""))
+
+        assertSessionKeptAndNoConnectionError()
+    }
+
+    /** (و) انتهاء مهلة التحديث → تبقى الجلسة */
+    @Test
+    fun `refresh timeout keeps session and throws Arabic no-connection error`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(401).setBody(""))
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+
+        assertSessionKeptAndNoConnectionError()
+    }
+
+    /** (ز) خطأ 5xx من الخادم أثناء التحديث → تبقى الجلسة */
+    @Test
+    fun `refresh 500 keeps session and throws Arabic no-connection error`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(401).setBody(""))
+        server.enqueue(MockResponse().setResponseCode(500).setBody("Internal Server Error"))
+
+        assertSessionKeptAndNoConnectionError()
+    }
+
+    @Test
+    fun `refresh 503 keeps session and throws Arabic no-connection error`() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(401).setBody(""))
+        server.enqueue(MockResponse().setResponseCode(503).setBody("<html>Service Unavailable</html>"))
+
+        assertSessionKeptAndNoConnectionError()
+    }
+
+    /** (ح) بعد فشل مؤقت، إعادة المحاولة تنجح بالجلسة نفسها — كما يفعل المستودع (Retrofit suspend). */
+    @Test
+    fun `retry after a failed refresh succeeds and repository sees the Arabic message`() = runBlocking {
+        val api = Retrofit.Builder()
+            .baseUrl(server.url("/"))
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(AuthApi::class.java)
+
+        server.enqueue(MockResponse().setResponseCode(401).setBody(""))
+        server.enqueue(MockResponse().setResponseCode(502).setBody(""))
+        val message = try {
+            api.me()
+            null
+        } catch (e: Exception) {
+            e.localizedMessage  // what the repositories' networkMessage() falls back to
+        }
+        assertEquals(SessionRefreshUnavailableException.NO_CONNECTION_MESSAGE, message)
+        assertEquals("refresh_token", fakeTokenStore.getRefreshToken())
+
+        // Connection is back: the user taps retry.
+        server.enqueue(MockResponse().setResponseCode(401).setBody(""))
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .addHeader("Content-Type", "application/json")
+                .setBody("""{"access":"new_access","refresh":"new_refresh"}""")
+        )
+        server.enqueue(
+            MockResponse().setResponseCode(200)
+                .addHeader("Content-Type", "application/json")
+                .setBody("""{"id":"u1","phone":"+970599000001","role":"WORKER","is_verified":true,"date_joined":"2026-11-01T00:00:00Z"}""")
+        )
+        val retry = api.me()
+        assertTrue(retry.isSuccessful)
+        assertEquals("new_access", fakeTokenStore.getAccessToken())
+        assertFalse(fakeTokenStore.clearCalled)
+    }
+
+    private suspend fun assertSessionKeptAndNoConnectionError() {
+        val expired = countSessionExpired {
+            try {
+                client.newCall(Request.Builder().url(server.url("/api/")).build()).execute().close()
+                fail("expected SessionRefreshUnavailableException")
+            } catch (e: SessionRefreshUnavailableException) {
+                assertEquals(SessionRefreshUnavailableException.NO_CONNECTION_MESSAGE, e.message)
+            }
+        }
+        assertFalse(fakeTokenStore.clearCalled)
+        assertEquals("stale_token", fakeTokenStore.getAccessToken())
+        assertEquals("refresh_token", fakeTokenStore.getRefreshToken())
+        assertEquals(0, expired)
+    }
+
+    /** Runs [block] and returns how many sessionExpired events it emitted. */
+    private suspend fun countSessionExpired(block: () -> Unit): Int = coroutineScope {
+        val count = AtomicInteger(0)
+        val job = launch(Dispatchers.Unconfined) { SessionEventBus.sessionExpired.collect { count.incrementAndGet() } }
+        block()
+        job.cancel()
+        count.get()
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────

@@ -9,6 +9,19 @@ import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
+import java.io.IOException
+
+/**
+ * Thrown from [TokenAuthenticator] when the refresh call could not reach a verdict
+ * (no connection, timeout, 5xx). The session is kept; repositories surface [message]
+ * through their normal `catch (e: Exception)` path so the user can retry.
+ */
+class SessionRefreshUnavailableException(cause: Throwable? = null) :
+    IOException(NO_CONNECTION_MESSAGE, cause) {
+    companion object {
+        const val NO_CONNECTION_MESSAGE = "تعذّر الاتصال بالخادم. تحقّق من الإنترنت ثم حاول مرة أخرى."
+    }
+}
 
 class TokenAuthenticator(
     private val tokenStore: TokenStore,
@@ -39,23 +52,34 @@ class TokenAuthenticator(
 
                 val result = try {
                     refreshApi.refreshToken(RefreshRequest(refreshToken))
-                } catch (_: Exception) {
-                    null
+                } catch (e: Exception) {
+                    // Network error or timeout: no verdict on the token, keep the session.
+                    throw SessionRefreshUnavailableException(e)
                 }
 
-                if (result != null && result.isSuccessful) {
-                    val body = result.body()!!
-                    val newRefresh = body.refresh ?: refreshToken
-                    tokenStore.saveTokens(body.access, newRefresh)
-                    response.request.newBuilder()
-                        .header("Authorization", "Bearer ${body.access}")
-                        .build()
-                } else {
-                    signOut()
-                    null
+                val body = result.body()
+                when {
+                    result.isSuccessful && body != null -> {
+                        tokenStore.saveTokens(body.access, body.refresh ?: refreshToken)
+                        response.request.newBuilder()
+                            .header("Authorization", "Bearer ${body.access}")
+                            .build()
+                    }
+                    isRefreshTokenRejected(result.code()) -> {
+                        signOut()
+                        null
+                    }
+                    // 5xx, 429, a proxy page…: the server never judged the token.
+                    else -> throw SessionRefreshUnavailableException()
                 }
             }
         }
+    }
+
+    companion object {
+        /** Only these mean the server looked at the refresh token and refused it
+         *  (expired, invalid or blacklisted). Everything else keeps the session. */
+        fun isRefreshTokenRejected(code: Int): Boolean = code == 401 || code == 400
     }
 
     private fun signOut() {

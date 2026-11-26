@@ -8,6 +8,8 @@ import com.yawmiyati.app.data.api.LoginRequest
 import com.yawmiyati.app.data.api.RefreshRequest
 import com.yawmiyati.app.data.api.RegisterBusinessRequest
 import com.yawmiyati.app.data.api.RegisterWorkerRequest
+import com.yawmiyati.app.data.api.SessionRefreshUnavailableException
+import com.yawmiyati.app.data.api.TokenAuthenticator
 import com.yawmiyati.app.data.api.UserResponse
 
 sealed class AuthResult<out T> {
@@ -144,10 +146,12 @@ class AuthRepository(private val tokenManager: TokenManager) {
                 } else {
                     AuthResult.Error("تعذّر تحميل ملف المستخدم")
                 }
-            } else {
-                // Refresh token expired → clear everything, force manual login
+            } else if (TokenAuthenticator.isRefreshTokenRejected(response.code())) {
+                // Refresh token expired, invalid or blacklisted → force manual login
                 tokenManager.clear()
                 AuthResult.Error("انتهت صلاحية الجلسة، سجّل دخولك مجدداً")
+            } else {
+                AuthResult.Error(SessionRefreshUnavailableException.NO_CONNECTION_MESSAGE)
             }
         } catch (e: Exception) {
             AuthResult.Error(networkMessage(e))
