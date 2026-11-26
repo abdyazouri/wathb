@@ -3,9 +3,10 @@ import hashlib
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import SimpleRateThrottle
+from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -225,6 +226,37 @@ class AdminWorkerVerifyView(APIView):
             )
 
         return Response(AdminWorkerProfileSerializer(wp).data)
+
+
+class _DeleteAccountThrottle(UserRateThrottle):
+    scope = "delete_account"
+
+
+class DeleteAccountView(APIView):
+    """POST {"password": "..."} — anonymise and deactivate the caller's account.
+
+    403 on a wrong password; 409 while assignments, wages or disputes are still
+    open (a business must never escape unpaid wages); 204 on success.
+    """
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [_DeleteAccountThrottle]
+
+    def post(self, request):
+        from accounts.deletion import blockers_detail, delete_account
+
+        password = request.data.get("password")
+        if not password:
+            raise ValidationError({"password": ["هذا الحقل مطلوب."]})
+        if not request.user.check_password(password):
+            return Response({"detail": "كلمة المرور غير صحيحة."}, status=status.HTTP_403_FORBIDDEN)
+
+        blockers = delete_account(request.user)
+        if blockers:
+            return Response(
+                {"detail": blockers_detail(blockers), "blockers": blockers},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def _log_audit(actor, action, model_name, object_id, details=None):

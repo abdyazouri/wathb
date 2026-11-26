@@ -126,6 +126,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "login_per_ip": "10/min",
         "login_per_phone": "5/min",
+        "delete_account": "5/hour",
     },
 }
 

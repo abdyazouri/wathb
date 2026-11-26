@@ -9,6 +9,7 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = []
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "login_per_ip": "1000/min",
     "login_per_phone": "1000/min",
+    "delete_account": "1000/min",
 }
 
 DATABASES = {

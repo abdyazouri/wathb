@@ -43,6 +43,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(auto_now_add=True)
     consent_version = models.IntegerField(null=True, blank=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = "phone"
     REQUIRED_FIELDS = ["role"]
