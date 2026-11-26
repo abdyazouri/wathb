@@ -1,8 +1,7 @@
 package com.yawmiyati.app.data.auth
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
 import com.yawmiyati.app.data.api.ApiClient
+import com.yawmiyati.app.data.api.ApiErrors
 import com.yawmiyati.app.data.api.DeleteAccountRequest
 import com.yawmiyati.app.data.api.LoginRequest
 import com.yawmiyati.app.data.api.RefreshRequest
@@ -117,27 +116,7 @@ class AuthRepository(private val tokenManager: TokenManager) {
         tokenManager.clear()
     }
 
-    private fun parseErrorMessage(body: String?): String {
-        if (body.isNullOrBlank()) return "خطأ غير معروف"
-        return try {
-            val json = Gson().fromJson(body, JsonObject::class.java)
-            when {
-                json.has("detail") -> json["detail"].asString
-                json.has("non_field_errors") ->
-                    json["non_field_errors"].asJsonArray.firstOrNull()?.asString ?: "بيانات غير صالحة"
-                else -> {
-                    // Return first field-level error
-                    json.entrySet().firstOrNull()?.let { (key, value) ->
-                        val msg = if (value.isJsonArray) value.asJsonArray.firstOrNull()?.asString
-                        else value.asString
-                        "$key: $msg"
-                    } ?: "خطأ في الطلب"
-                }
-            }
-        } catch (_: Exception) {
-            "فشل الطلب"
-        }
-    }
+    private fun parseErrorMessage(body: String?): String = ApiErrors.message(body)
 
     private fun networkMessage(e: Exception): String = when {
         e is java.net.SocketTimeoutException -> "انتهت مهلة الاتصال بالخادم"

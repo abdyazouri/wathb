@@ -1,13 +1,12 @@
 package com.yawmiyati.app.data.admin
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
 import com.yawmiyati.app.data.api.AdminBusinessProfile
 import com.yawmiyati.app.data.api.AdminPhoneResolveRequest
 import com.yawmiyati.app.data.api.AdminVerifyRequest
 import com.yawmiyati.app.data.api.AdminWorkerActionRequest
 import com.yawmiyati.app.data.api.AdminWorkerProfile
 import com.yawmiyati.app.data.api.ApiClient
+import com.yawmiyati.app.data.api.ApiErrors
 import com.yawmiyati.app.data.api.PilotSummaryResponse
 import com.yawmiyati.app.data.api.WageObligationResponse
 
@@ -116,18 +115,7 @@ class AdminRepository {
         }
     }
 
-    private fun parseError(body: String?): String {
-        if (body.isNullOrBlank()) return "خطأ غير معروف"
-        return try {
-            val json = Gson().fromJson(body, JsonObject::class.java)
-            when {
-                json.has("detail") -> json["detail"].asString
-                else -> json.entrySet().firstOrNull()?.let { (_, v) ->
-                    if (v.isJsonArray) v.asJsonArray.firstOrNull()?.asString else v.asString
-                } ?: "خطأ في الطلب"
-            }
-        } catch (_: Exception) { "فشل الطلب" }
-    }
+    private fun parseError(body: String?): String = ApiErrors.message(body)
 
     private fun networkMessage(e: Exception): String = when {
         e is java.net.SocketTimeoutException -> "انتهت مهلة الاتصال بالخادم"

@@ -1,8 +1,7 @@
 package com.yawmiyati.app.data.assignments
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
 import com.yawmiyati.app.data.api.ApiClient
+import com.yawmiyati.app.data.api.ApiErrors
 import com.yawmiyati.app.data.api.AssignmentResponse
 import com.yawmiyati.app.data.api.AttendanceResponse
 import com.yawmiyati.app.data.api.AttendanceSubmitRequest
@@ -156,18 +155,7 @@ open class AssignmentRepository {
         } catch (e: Exception) { AssignmentResult.Error(networkMessage(e)) }
     }
 
-    private fun parseError(body: String?): String {
-        if (body.isNullOrBlank()) return "خطأ غير معروف"
-        return try {
-            val json = Gson().fromJson(body, JsonObject::class.java)
-            when {
-                json.has("detail") -> json["detail"].asString
-                else -> json.entrySet().firstOrNull()?.let { (_, v) ->
-                    if (v.isJsonArray) v.asJsonArray.firstOrNull()?.asString else v.asString
-                } ?: "خطأ في الطلب"
-            }
-        } catch (_: Exception) { "فشل الطلب" }
-    }
+    private fun parseError(body: String?): String = ApiErrors.message(body)
 
     private fun networkMessage(e: Exception): String = when {
         e is java.net.SocketTimeoutException -> "انتهت مهلة الاتصال بالخادم"
