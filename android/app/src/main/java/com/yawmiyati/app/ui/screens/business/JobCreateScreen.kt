@@ -52,6 +52,7 @@ import com.yawmiyati.app.viewmodels.JobCreateUiState
 import com.yawmiyati.app.viewmodels.JobCreateViewModel
 import java.util.Calendar
 import java.util.TimeZone
+import com.yawmiyati.app.ui.utils.formatArabicTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,8 +76,8 @@ fun JobCreateScreen(
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
-    val startTimeState = rememberTimePickerState(is24Hour = true)
-    val endTimeState = rememberTimePickerState(is24Hour = true)
+    val startTimeState = rememberTimePickerState(is24Hour = false)
+    val endTimeState = rememberTimePickerState(is24Hour = false)
     var numWorkers by remember { mutableStateOf("1") }
     var wageAmount by remember { mutableStateOf("") }
     var wageBasis by remember { mutableStateOf("PER_DAY") }
@@ -158,7 +159,7 @@ fun JobCreateScreen(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = startTime,
+                    value = if (startTime.isBlank()) "" else formatArabicTime(startTime),
                     onValueChange = {},
                     label = { Text("وقت البداية") },
                     readOnly = true,
@@ -171,7 +172,7 @@ fun JobCreateScreen(
                     }
                 )
                 OutlinedTextField(
-                    value = endTime,
+                    value = if (endTime.isBlank()) "" else formatArabicTime(endTime),
                     onValueChange = {},
                     label = { Text("وقت النهاية") },
                     readOnly = true,

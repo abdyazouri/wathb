@@ -32,8 +32,17 @@ fun formatArabicDate(isoDate: String): String {
     }
 }
 
-/** "07:00:00" or "07:00" → "٠٧:٠٠" */
-fun formatArabicTime(isoTime: String): String = isoTime.take(5).toArabicNumerals()
+/** 12-hour clock: "07:00:00" → "٧:٠٠ صباحًا", "13:30" → "١:٣٠ مساءً", "00:15" → "١٢:١٥ صباحًا". */
+fun formatArabicTime(isoTime: String): String {
+    return try {
+        val (h, m) = isoTime.take(5).split(":").map { it.toInt() }
+        val hour12 = if (h % 12 == 0) 12 else h % 12
+        val period = if (h < 12) "صباحًا" else "مساءً"
+        "${hour12.toArabic()}:${"%02d".format(m).toArabicNumerals()} $period"
+    } catch (e: Exception) {
+        isoTime.take(5).toArabicNumerals()
+    }
+}
 
 /** "250 ILS" from server → "٢٥٠ ₪" */
 fun String.toArabicAmountDisplay(): String = replace("ILS", "₪").toArabicNumerals()
