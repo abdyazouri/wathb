@@ -385,11 +385,16 @@ class AdminVerifyPaymentTests(APITestCase):
         return reverse("wage-admin-verify", args=[self.obligation.pk, self.declaration.pk])
 
     def _dispute(self):
-        """The worker disputed the declaration: the only state admin verify accepts."""
+        """The worker disputed the declaration: the only state admin verify/reject accept."""
+        from disputes.models import Dispute
         self.obligation.status = WageObligationStatus.DISPUTED
         self.obligation.save(update_fields=["status"])
         self.declaration.status = PaymentDeclarationStatus.DISPUTED
         self.declaration.save(update_fields=["status"])
+        self.dispute = Dispute.objects.create(
+            category="PAYMENT_NOT_RECEIVED", assignment=self.assignment,
+            wage_obligation=self.obligation, raised_by=self.worker, description="لم أستلم",
+        )
 
     def test_admin_can_verify_disputed_wage_with_notes(self):
         self._dispute()
@@ -402,65 +407,122 @@ class AdminVerifyPaymentTests(APITestCase):
         self.assertEqual(self.declaration.review_notes, "إيصال جوال باي واضح")
         self.assertEqual(self.obligation.status, WageObligationStatus.VERIFIED_PAID)
 
-    def test_verify_requires_non_empty_notes(self):
+    def test_admin_can_reject_disputed_wage_and_it_returns_to_due(self):
         self._dispute()
         self.client.force_authenticate(user=self.admin)
-        for data in ({"action": "verify"}, {"action": "verify", "review_notes": ""}, {"action": "verify", "review_notes": "   "}):
-            response = self.client.post(self._verify_url(), data)
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, data)
-            self.assertIn("review_notes", response.data["detail"])
+        response = self.client.post(self._verify_url(), {"action": "reject", "review_notes": "لا يوجد إيصال"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.declaration.refresh_from_db()
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.declaration.status, PaymentDeclarationStatus.REJECTED)
+        self.assertEqual(self.declaration.review_notes, "لا يوجد إيصال")
+        self.assertEqual(self.obligation.status, WageObligationStatus.DUE)
+
+        # The business must pay and declare again.
+        self.client.force_authenticate(user=self.biz_user)
+        response = self.client.post(
+            reverse("wage-declare-payment", args=[self.obligation.pk]),
+            {"declared_amount": self.obligation.amount, "currency": "ILS",
+             "payment_date": str(datetime.date.today()), "payment_method": "PALPAY"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.AWAITING_ACK)
+
+    def test_settling_notifies_worker_and_business_in_arabic(self):
+        from notifications.models import Notification
+        from yawmiyati.exception_handler import is_arabic
+        for action, notification_type in (("verify", "PAYMENT_VERIFIED"), ("reject", "PAYMENT_REJECTED")):
+            with self.subTest(action=action):
+                Notification.objects.all().delete()
+                self._dispute()
+                self.client.force_authenticate(user=self.admin)
+                response = self.client.post(self._verify_url(), {"action": action, "review_notes": "تمت مراجعة الإيصال"})
+                self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+                for user in (self.worker, self.biz_user):
+                    n = Notification.objects.get(recipient=user, related_id=str(self.obligation.pk))
+                    self.assertEqual(n.notification_type, notification_type)
+                    self.assertTrue(is_arabic(n.title) and is_arabic(n.body), (n.title, n.body))
+                    self.assertIn("تمت مراجعة الإيصال", n.body)
+
+    def test_settling_resolves_linked_dispute_with_same_note(self):
+        from disputes.models import DisputeStatus
+        for action in ("verify", "reject"):
+            with self.subTest(action=action):
+                self._dispute()
+                self.client.force_authenticate(user=self.admin)
+                self.client.post(self._verify_url(), {"action": action, "review_notes": "  قرار المشرف  "})
+                self.dispute.refresh_from_db()
+                self.assertEqual(self.dispute.status, DisputeStatus.RESOLVED)
+                self.assertEqual(self.dispute.resolution_notes, "قرار المشرف")
+                self.assertIsNotNone(self.dispute.resolved_at)
+                event = self.dispute.events.get(action="resolved")
+                self.assertEqual((event.actor, event.notes), (self.admin, "قرار المشرف"))
+
+    def test_settling_requires_non_empty_notes(self):
+        self._dispute()
+        self.client.force_authenticate(user=self.admin)
+        for action in ("verify", "reject"):
+            for notes in (None, "", "   "):
+                data = {"action": action} if notes is None else {"action": action, "review_notes": notes}
+                response = self.client.post(self._verify_url(), data)
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, data)
+                self.assertIn("review_notes", response.data["detail"])
         self.declaration.refresh_from_db()
         self.obligation.refresh_from_db()
         self.assertEqual(self.declaration.status, PaymentDeclarationStatus.DISPUTED)
         self.assertEqual(self.obligation.status, WageObligationStatus.DISPUTED)
 
-    def test_verify_refused_while_awaiting_worker(self):
+    def test_settling_refused_while_awaiting_worker(self):
         # setUp state: declared, worker has not acknowledged or disputed yet.
         self.client.force_authenticate(user=self.admin)
-        response = self.client.post(self._verify_url(), {"action": "verify", "review_notes": "ملاحظة"})
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        for action in ("verify", "reject"):
+            response = self.client.post(self._verify_url(), {"action": action, "review_notes": "ملاحظة"})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, action)
         self.declaration.refresh_from_db()
         self.obligation.refresh_from_db()
         self.assertEqual(self.declaration.status, PaymentDeclarationStatus.SUBMITTED)
         self.assertEqual(self.obligation.status, WageObligationStatus.AWAITING_ACK)
 
-    def test_verify_checks_wage_status_not_only_declaration(self):
+    def test_settling_checks_wage_status_not_only_declaration(self):
         # A disputed declaration on a wage that is no longer DISPUTED must not flip the wage.
         self._dispute()
-        for wage_status in (WageObligationStatus.VERIFIED_PAID, WageObligationStatus.REJECTED,
-                            WageObligationStatus.AWAITING_ACK, WageObligationStatus.PENDING):
-            self.obligation.status = wage_status
-            self.obligation.save(update_fields=["status"])
-            self.client.force_authenticate(user=self.admin)
-            response = self.client.post(self._verify_url(), {"action": "verify", "review_notes": "ملاحظة"})
-            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, wage_status)
-            self.declaration.refresh_from_db()
-            self.assertEqual(self.declaration.status, PaymentDeclarationStatus.DISPUTED)
+        self.client.force_authenticate(user=self.admin)
+        for action in ("verify", "reject"):
+            for wage_status in (WageObligationStatus.VERIFIED_PAID, WageObligationStatus.REJECTED,
+                                WageObligationStatus.AWAITING_ACK, WageObligationStatus.PENDING,
+                                WageObligationStatus.DUE):
+                self.obligation.status = wage_status
+                self.obligation.save(update_fields=["status"])
+                response = self.client.post(self._verify_url(), {"action": action, "review_notes": "ملاحظة"})
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, (action, wage_status))
+                self.obligation.refresh_from_db()
+                self.assertEqual(self.obligation.status, wage_status)
+                self.declaration.refresh_from_db()
+                self.assertEqual(self.declaration.status, PaymentDeclarationStatus.DISPUTED)
 
-    def test_verify_refused_for_non_disputed_declaration_on_disputed_wage(self):
+    def test_settling_refused_for_non_disputed_declaration_on_disputed_wage(self):
         self._dispute()
         self.declaration.status = PaymentDeclarationStatus.SUBMITTED
         self.declaration.save(update_fields=["status"])
         self.client.force_authenticate(user=self.admin)
-        response = self.client.post(self._verify_url(), {"action": "verify", "review_notes": "ملاحظة"})
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        for action in ("verify", "reject"):
+            response = self.client.post(self._verify_url(), {"action": action, "review_notes": "ملاحظة"})
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, action)
         self.obligation.refresh_from_db()
         self.assertEqual(self.obligation.status, WageObligationStatus.DISPUTED)
 
-    def test_admin_can_reject_with_notes(self):
+    def test_dispute_list_exposes_wage_status_and_disputed_declaration(self):
+        self._dispute()
         self.client.force_authenticate(user=self.admin)
-        response = self.client.post(self._verify_url(), {"action": "reject", "review_notes": "Payment receipt unclear"})
-        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
-        self.declaration.refresh_from_db()
-        self.obligation.refresh_from_db()
-        self.assertEqual(self.declaration.status, PaymentDeclarationStatus.REJECTED)
-        self.assertEqual(self.obligation.status, WageObligationStatus.REJECTED)
+        row = self.client.get(reverse("dispute-list")).data["results"][0]
+        self.assertEqual(row["wage_obligation_status"], WageObligationStatus.DISPUTED)
+        self.assertEqual(row["disputed_declaration"], str(self.declaration.pk))
 
-    def test_rejection_requires_review_notes(self):
-        self.client.force_authenticate(user=self.admin)
-        response = self.client.post(self._verify_url(), {"action": "reject"})
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("review_notes", response.data["detail"])
+        self.client.post(self._verify_url(), {"action": "reject", "review_notes": "ملاحظة"})
+        row = self.client.get(reverse("dispute-list")).data["results"][0]
+        self.assertEqual(row["wage_obligation_status"], WageObligationStatus.DUE)
+        self.assertIsNone(row["disputed_declaration"])
 
     def test_non_admin_cannot_verify(self):
         for user in [self.biz_user, self.worker]:

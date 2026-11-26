@@ -22,12 +22,12 @@ class DisputeListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == Role.ADMIN:
-            return Dispute.objects.all().select_related("raised_by", "assigned_to")
+            return Dispute.objects.all().select_related("raised_by", "assigned_to", "wage_obligation")
         if user.role == Role.BUSINESS:
             return Dispute.objects.filter(
                 Q(raised_by=user) | Q(assignment__job__business__user=user)
-            ).distinct().select_related("raised_by", "assigned_to")
-        return Dispute.objects.filter(raised_by=user).select_related("raised_by", "assigned_to")
+            ).distinct().select_related("raised_by", "assigned_to", "wage_obligation")
+        return Dispute.objects.filter(raised_by=user).select_related("raised_by", "assigned_to", "wage_obligation")
 
     def perform_create(self, serializer):
         dispute = serializer.save(raised_by=self.request.user)
