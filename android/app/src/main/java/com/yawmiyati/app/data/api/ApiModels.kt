@@ -82,7 +82,6 @@ data class JobListingResponse(
     @SerializedName("wage_basis") val wageBasis: String,
     @SerializedName("wage_display") val wageDisplay: String,
     @SerializedName("payment_method") val paymentMethod: String,
-    @SerializedName("payment_deadline_days") val paymentDeadlineDays: Int,
     @SerializedName("attendance_requirements") val attendanceRequirements: String,
     @SerializedName("cancellation_policy") val cancellationPolicy: String,
     @SerializedName("additional_conditions") val additionalConditions: String,
@@ -155,7 +154,6 @@ data class JobCreateRequest(
     @SerializedName("wage_currency") val wageCurrency: String = "ILS",
     @SerializedName("wage_basis") val wageBasis: String = "PER_DAY",
     @SerializedName("payment_method") val paymentMethod: String,  // JAWWAL_PAY | PALPAY | BANK_OF_PALESTINE; required by the server
-    @SerializedName("payment_deadline_days") val paymentDeadlineDays: Int = 3,
     @SerializedName("required_skills") val requiredSkills: String = "",
     @SerializedName("attendance_requirements") val attendanceRequirements: String = "",
     @SerializedName("cancellation_policy") val cancellationPolicy: String = "",
@@ -277,7 +275,6 @@ data class AssignmentResponse(
     @SerializedName("job_wage_currency") val jobWageCurrency: String? = null,
     @SerializedName("job_wage_basis") val jobWageBasis: String? = null,
     @SerializedName("job_payment_method") val jobPaymentMethod: String? = null,
-    @SerializedName("job_payment_deadline_days") val jobPaymentDeadlineDays: Int? = null,
     val status: String,
     // Populated by backend on accept; null on OFFERED/DECLINED
     @SerializedName("terms_snapshot") val termsSnapshot: Map<String, Any>? = null,

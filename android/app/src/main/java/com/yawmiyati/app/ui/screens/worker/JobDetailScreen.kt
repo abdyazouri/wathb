@@ -237,7 +237,7 @@ private fun JobDetailContent(
         HorizontalDivider()
 
         DetailRow(label = "الأجر", value = formatArabicWage(job.wageAmount, job.wageCurrency, job.wageBasis))
-        DetailRow(label = "مدة سداد الأجر", value = "${job.paymentDeadlineDays.toArabic()} أيام بعد الإنجاز")
+        DetailRow(label = "الدفع", value = "يوميًا، فور انتهاء العمل")
 
         if (job.description.isNotBlank()) {
             HorizontalDivider()

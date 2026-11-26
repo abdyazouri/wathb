@@ -237,8 +237,7 @@ fun JobCreateScreen(
                         numWorkers = numWorkers.toIntOrNull() ?: 1,
                         wageAmountIls = wageAmount.toLongOrNull() ?: 0L,
                         wageBasis = wageBasis,
-                        paymentMethod = paymentMethod,
-                        paymentDeadlineDays = 3
+                        paymentMethod = paymentMethod
                     )
                 },
                 enabled = uiState !is JobCreateUiState.Loading,

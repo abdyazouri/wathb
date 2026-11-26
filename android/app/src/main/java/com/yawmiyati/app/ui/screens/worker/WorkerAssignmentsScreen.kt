@@ -276,13 +276,6 @@ internal fun AssignmentCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                if (assignment.jobPaymentDeadlineDays != null) {
-                    Text(
-                        text = "موعد الدفع: خلال ${assignment.jobPaymentDeadlineDays.toArabic()} أيام من الانتهاء",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
 
             // Show agreed terms after acceptance
@@ -291,7 +284,6 @@ internal fun AssignmentCard(
                 val snapWageAmount = (snap["wage_amount"] as? Number)?.toLong()
                 val snapCurrency = snap["wage_currency"] as? String
                 val snapBasis = snap["wage_basis"] as? String
-                val snapDeadlineDays = (snap["payment_deadline_days"] as? Number)?.toInt()
                 val snapWorkDate = snap["work_date"] as? String
                 val snapStart = snap["start_time"] as? String
                 val snapEnd = snap["end_time"] as? String
@@ -324,9 +316,6 @@ internal fun AssignmentCard(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                if (snapDeadlineDays != null)
-                    Text("موعد الدفع: خلال ${snapDeadlineDays.toArabic()} أيام", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             // Action buttons
