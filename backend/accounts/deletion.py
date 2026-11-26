@@ -119,11 +119,12 @@ def _anonymize(user):
         business = None
     if business is not None:
         # The commercial identity (legal_name, trade_name, registration_number,
-        # business address) stays on past jobs, wages and disputes; only the
-        # owner's personal contact details go.
+        # city) stays on past jobs, wages and disputes. The owner's contact
+        # details and the street address (often the owner's home) go.
         business.contact_name = ""
         business.contact_phone = ""
-        business.save(update_fields=["contact_name", "contact_phone"])
+        business.location_address = ""
+        business.save(update_fields=["contact_name", "contact_phone", "location_address"])
 
     Notification.objects.filter(recipient=user).delete()
 

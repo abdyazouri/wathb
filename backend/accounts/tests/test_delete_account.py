@@ -296,7 +296,9 @@ class DeleteBusinessAccountTests(DeleteAccountTestBase):
         self.delete()
         self.bp.refresh_from_db()
         self.assertEqual((self.bp.contact_name, self.bp.contact_phone), ("", ""))
+        self.assertEqual(self.bp.location_address, "")
         self.assertEqual((self.bp.legal_name, self.bp.trade_name), ("مخبز الأمل", "الأمل"))
+        self.assertEqual((self.bp.registration_number, self.bp.location_city), ("R-1", "غزة"))
         from jobs.serializers import JobListingSerializer
         past_job = JobListing.objects.get(pk=self.paid.assignment.job_id)
         self.assertEqual(JobListingSerializer(past_job).data["business_name"], "مخبز الأمل")
