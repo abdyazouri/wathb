@@ -6,14 +6,12 @@ plugins {
 
 android {
     namespace = "com.yawmiyati.app"
-    compileSdk = 35
-
-    buildToolsVersion = "35.0.0"
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.wathb.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         // RELEASE RULE: raise versionCode whenever backend accounts/consent.py
         // bumps CONSENT_VERSION — old clients must update before they can register.
         versionCode = 1
