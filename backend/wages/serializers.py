@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from yawmiyati.money import format_money
 from wages.models import WageObligation, PaymentDeclaration, PaymentEvidence
 
 
@@ -25,8 +26,7 @@ class WageObligationSerializer(serializers.ModelSerializer):
             return None
 
     def get_amount_display(self, obj):
-        major = obj.amount / 100
-        return f"{major:.0f} {obj.currency}"
+        return format_money(obj.amount)
 
     def get_declarations(self, obj):
         from wages.serializers import PaymentDeclarationSerializer

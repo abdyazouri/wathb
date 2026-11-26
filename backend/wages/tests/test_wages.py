@@ -437,6 +437,15 @@ class AdminVerifyPaymentTests(APITestCase):
         statuses = [o["status"] for o in response.data["results"]]
         self.assertTrue(all(s == WageObligationStatus.AWAITING_ACK for s in statuses))
 
+    def test_amount_display_is_arabic_shekels(self):
+        from wages.serializers import WageObligationSerializer
+        self.assertEqual(WageObligationSerializer(self.obligation).data["amount_display"], "١٠٠ ₪")
+        self.obligation.amount = 2550
+        data = WageObligationSerializer(self.obligation).data
+        self.assertEqual(data["amount_display"], "٢٥٫٥٠ ₪")
+        # Raw minor-unit field is unchanged.
+        self.assertEqual(data["amount"], 2550)
+
     def test_obligation_serializer_includes_declarations(self):
         self.client.force_authenticate(user=self.admin)
         response = self.client.get(reverse("wage-detail", args=[self.obligation.pk]))

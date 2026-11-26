@@ -529,3 +529,14 @@ class JobCreateCurrencyAndPaymentMethodTests(APITestCase):
         job.refresh_from_db()
         self.assertEqual(job.payment_method, "JAWWAL_PAY")
         self.assertEqual(job.wage_currency, "ILS")
+
+
+class WageDisplayTests(APITestCase):
+
+    def test_wage_display_uses_shared_money_format(self):
+        from jobs.serializers import JobListingSerializer
+        _, biz_profile = make_business("+970599017101")
+        job = make_job(biz_profile, wage_amount=2550)
+        data = JobListingSerializer(job).data
+        self.assertTrue(data["wage_display"].startswith("٢٥٫٥٠ ₪ / "), data["wage_display"])
+        self.assertEqual(data["wage_amount"], 2550)

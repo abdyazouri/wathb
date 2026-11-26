@@ -2,6 +2,7 @@ from django.db.models import Count, F, Q
 from django.utils import timezone
 from rest_framework import serializers
 from jobs.models import JobListing, JobApplication, JobCategory
+from yawmiyati.money import format_money
 
 
 class JobListingSerializer(serializers.ModelSerializer):
@@ -33,8 +34,7 @@ class JobListingSerializer(serializers.ModelSerializer):
         return (timezone.now() - obj.published_at).total_seconds() < 86400
 
     def get_wage_display(self, obj):
-        major = obj.wage_amount / 100
-        return f"{major:.0f} {obj.wage_currency} / {obj.get_wage_basis_display()}"
+        return f"{format_money(obj.wage_amount)} / {obj.get_wage_basis_display()}"
 
     def get_business_track_record(self, obj):
         from wages.models import WageObligation, WageObligationStatus
