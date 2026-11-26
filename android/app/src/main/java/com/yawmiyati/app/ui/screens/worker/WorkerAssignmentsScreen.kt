@@ -264,19 +264,13 @@ internal fun AssignmentCard(
                         "PER_TASK" -> "بالمهمة"
                         else       -> assignment.jobWageBasis ?: ""
                     }
-                    val methodLabel = when (assignment.jobPaymentMethod) {
-                        "JAWWAL_PAY"       -> "جوال باي"
-                        "PALPAY"           -> "بال باي"
-                        "BANK_OF_PALESTINE" -> "بنك فلسطين"
-                        else               -> assignment.jobPaymentMethod ?: ""
-                    }
                     val wageStr = formatArabicWage(
                         assignment.jobWageAmount,
                         assignment.jobWageCurrency ?: "ILS",
                         assignment.jobWageBasis ?: ""
                     )
                     Text(
-                        text = "الأجر: $wageStr ($basisLabel) — $methodLabel",
+                        text = "الأجر: $wageStr ($basisLabel)",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -296,7 +290,6 @@ internal fun AssignmentCard(
                 val snapWageAmount = (snap["wage_amount"] as? Number)?.toLong()
                 val snapCurrency = snap["wage_currency"] as? String
                 val snapBasis = snap["wage_basis"] as? String
-                val snapMethod = snap["payment_method"] as? String
                 val snapDeadlineDays = (snap["payment_deadline_days"] as? Number)?.toInt()
                 val snapWorkDate = snap["work_date"] as? String
                 val snapStart = snap["start_time"] as? String
@@ -323,15 +316,9 @@ internal fun AssignmentCard(
                         "PER_TASK" -> "بالمهمة"
                         else       -> snapBasis ?: ""
                     }
-                    val methodLabel = when (snapMethod) {
-                        "JAWWAL_PAY"       -> "جوال باي"
-                        "PALPAY"           -> "بال باي"
-                        "BANK_OF_PALESTINE" -> "بنك فلسطين"
-                        else               -> snapMethod ?: ""
-                    }
                     val wageStr = formatArabicWage(snapWageAmount, snapCurrency, snapBasis ?: "")
                     Text(
-                        "الأجر: $wageStr ($basisLabel) — $methodLabel",
+                        "الأجر: $wageStr ($basisLabel)",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -364,16 +351,9 @@ internal fun AssignmentCard(
                         val snapAmount = (snap["wage_amount"] as? Number)?.toLong()
                         val snapCurrency = snap["wage_currency"] as? String ?: "ILS"
                         val snapBasis = snap["wage_basis"] as? String ?: ""
-                        val snapMethod = snap["payment_method"] as? String
-                        val methodLabel = when (snapMethod) {
-                            "JAWWAL_PAY"       -> "جوال باي"
-                            "PALPAY"           -> "بال باي"
-                            "BANK_OF_PALESTINE" -> "بنك فلسطين"
-                            else               -> ""
-                        }
                         if (snapAmount != null) {
                             Text(
-                                text = "أجرك: ${formatArabicWage(snapAmount, snapCurrency, snapBasis)}${if (methodLabel.isNotBlank()) " — $methodLabel" else ""}",
+                                text = "أجرك: ${formatArabicWage(snapAmount, snapCurrency, snapBasis)}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )

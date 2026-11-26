@@ -229,7 +229,6 @@ private fun JobDetailContent(
         HorizontalDivider()
 
         DetailRow(label = "الأجر", value = formatArabicWage(job.wageAmount, job.wageCurrency, job.wageBasis))
-        DetailRow(label = "طريقة الدفع", value = paymentMethodLabel(job.paymentMethod))
         DetailRow(label = "مدة سداد الأجر", value = "${job.paymentDeadlineDays.toArabic()} أيام بعد الإنجاز")
 
         if (job.description.isNotBlank()) {
@@ -283,9 +282,3 @@ private fun DetailRow(label: String, value: String) {
     }
 }
 
-private fun paymentMethodLabel(method: String): String = when (method) {
-    "JAWWAL_PAY"       -> "جوال باي"
-    "PALPAY"           -> "بال باي"
-    "BANK_OF_PALESTINE" -> "بنك فلسطين"
-    else               -> method
-}
