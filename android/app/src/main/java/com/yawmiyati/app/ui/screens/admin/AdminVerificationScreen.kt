@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -244,18 +246,30 @@ private fun VerifyDialog(
         onDismissRequest = onDismiss,
         title = { Text(business.legalName) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Text(
-                    text = "الحالة الحالية: ${statusLabel(business.verificationStatus)}",
+                    text = "الحالة: ${statusLabel(business.verificationStatus)}",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                if (!business.email.isNullOrBlank()) {
-                    Text(
-                        text = business.email,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                if (!business.tradeName.isNullOrBlank())
+                    DetailRow("الاسم التجاري", business.tradeName)
+                if (!business.registrationNumber.isNullOrBlank())
+                    DetailRow("رقم التسجيل", business.registrationNumber)
+                if (!business.email.isNullOrBlank())
+                    DetailRow("البريد الإلكتروني", business.email)
+                if (!business.locationCity.isNullOrBlank())
+                    DetailRow("المدينة", business.locationCity)
+                if (!business.locationAddress.isNullOrBlank())
+                    DetailRow("العنوان", business.locationAddress)
+                DetailRow("جهة الاتصال", business.contactName)
+                DetailRow("هاتف الاتصال", business.contactPhone)
+                if (!business.verifiedAt.isNullOrBlank())
+                    DetailRow("تاريخ التوثيق", business.verifiedAt)
+                if (!business.suspensionReason.isNullOrBlank())
+                    DetailRow("سبب الإيقاف", business.suspensionReason)
 
                 Spacer(Modifier.height(4.dp))
                 Text("اختر الإجراء:", style = MaterialTheme.typography.labelLarge)
@@ -306,6 +320,14 @@ private fun VerifyDialog(
             }
         }
     )
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodySmall)
+    }
 }
 
 private fun statusLabel(status: String): String = when (status) {

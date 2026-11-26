@@ -180,11 +180,24 @@ fun YawmiyatiNavGraph() {
                 onViewApplications = { jobId ->
                     navController.navigate(Screen.JobApplications.createRoute(jobId))
                 },
+                onManageAssignment = { assignmentId, workerPhone, assignmentStatus ->
+                    navController.navigate(Screen.BusinessAssignment.createRoute(assignmentId, workerPhone, assignmentStatus))
+                },
+                onOpenNotifications = {
+                    navController.navigate(Screen.BusinessNotifications.route)
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable(Screen.BusinessNotifications.route) {
+            com.yawmiyati.app.ui.screens.NotificationsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigate = { _, _ -> }
             )
         }
 

@@ -14,8 +14,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -26,7 +31,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.yawmiyati.app.viewmodels.JobCreateUiState
 import com.yawmiyati.app.viewmodels.JobCreateViewModel
+import java.util.Calendar
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +70,13 @@ fun JobCreateScreen(
     var workDate by remember { mutableStateOf("") }
     var startTime by remember { mutableStateOf("") }
     var endTime by remember { mutableStateOf("") }
+
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState()
+    val startTimeState = rememberTimePickerState(is24Hour = true)
+    val endTimeState = rememberTimePickerState(is24Hour = true)
     var numWorkers by remember { mutableStateOf("1") }
     var wageAmount by remember { mutableStateOf("") }
     var wageBasis by remember { mutableStateOf("PER_DAY") }
@@ -126,23 +144,44 @@ fun JobCreateScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
-                value = workDate, onValueChange = { workDate = it },
-                label = { Text("تاريخ العمل (YYYY-MM-DD)") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth()
+                value = workDate,
+                onValueChange = {},
+                label = { Text("تاريخ العمل") },
+                readOnly = true,
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Filled.DateRange, contentDescription = "اختر التاريخ")
+                    }
+                }
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
-                    value = startTime, onValueChange = { startTime = it },
-                    label = { Text("وقت البداية (HH:MM)") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    modifier = Modifier.weight(1f)
+                    value = startTime,
+                    onValueChange = {},
+                    label = { Text("وقت البداية") },
+                    readOnly = true,
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    trailingIcon = {
+                        IconButton(onClick = { showStartTimePicker = true }) {
+                            Icon(Icons.Filled.Schedule, contentDescription = "اختر الوقت")
+                        }
+                    }
                 )
                 OutlinedTextField(
-                    value = endTime, onValueChange = { endTime = it },
-                    label = { Text("وقت النهاية (HH:MM)") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    modifier = Modifier.weight(1f)
+                    value = endTime,
+                    onValueChange = {},
+                    label = { Text("وقت النهاية") },
+                    readOnly = true,
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    trailingIcon = {
+                        IconButton(onClick = { showEndTimePicker = true }) {
+                            Icon(Icons.Filled.Schedule, contentDescription = "اختر الوقت")
+                        }
+                    }
                 )
             }
             OutlinedTextField(
@@ -217,5 +256,64 @@ fun JobCreateScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                        cal.timeInMillis = millis
+                        workDate = "%04d-%02d-%02d".format(
+                            cal.get(Calendar.YEAR),
+                            cal.get(Calendar.MONTH) + 1,
+                            cal.get(Calendar.DAY_OF_MONTH)
+                        )
+                    }
+                    showDatePicker = false
+                }) { Text("تأكيد") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("إلغاء") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showStartTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showStartTimePicker = false },
+            title = { Text("وقت البداية") },
+            text = { TimePicker(state = startTimeState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    startTime = "%02d:%02d".format(startTimeState.hour, startTimeState.minute)
+                    showStartTimePicker = false
+                }) { Text("تأكيد") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartTimePicker = false }) { Text("إلغاء") }
+            }
+        )
+    }
+
+    if (showEndTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showEndTimePicker = false },
+            title = { Text("وقت النهاية") },
+            text = { TimePicker(state = endTimeState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    endTime = "%02d:%02d".format(endTimeState.hour, endTimeState.minute)
+                    showEndTimePicker = false
+                }) { Text("تأكيد") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndTimePicker = false }) { Text("إلغاء") }
+            }
+        )
     }
 }

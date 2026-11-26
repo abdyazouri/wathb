@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payments
@@ -55,7 +53,6 @@ import com.yawmiyati.app.ui.components.EmptyState
 import com.yawmiyati.app.ui.components.ErrorMessage
 import com.yawmiyati.app.ui.components.LoadingIndicator
 import com.yawmiyati.app.ui.components.SupportWhatsappButton
-import com.yawmiyati.app.viewmodels.AuthViewModel
 import com.yawmiyati.app.viewmodels.CancelJobUiState
 import com.yawmiyati.app.viewmodels.CloneJobUiState
 import com.yawmiyati.app.viewmodels.JobsUiState
@@ -67,13 +64,10 @@ import com.yawmiyati.app.viewmodels.PublishUiState
 fun BusinessHomeScreen(
     onCreateJob: () -> Unit,
     onViewApplications: (jobId: String) -> Unit,
-    onWages: () -> Unit,
-    onProfile: () -> Unit = {},
-    onLogout: () -> Unit,
+    onWages: () -> Unit = {},
     onNotifications: () -> Unit = {},
     unreadCount: Int = 0,
-    jobsViewModel: JobsViewModel = viewModel(),
-    authViewModel: AuthViewModel = viewModel()
+    jobsViewModel: JobsViewModel = viewModel()
 ) {
     val jobsState by jobsViewModel.uiState.collectAsState()
     val publishState by jobsViewModel.publishState.collectAsState()
@@ -146,15 +140,6 @@ fun BusinessHomeScreen(
                         }) {
                             Icon(Icons.Filled.Notifications, contentDescription = "الإشعارات", tint = Color.White)
                         }
-                    }
-                    IconButton(onClick = onProfile) {
-                        Icon(Icons.Filled.AccountCircle, contentDescription = "الملف الشخصي", tint = Color.White)
-                    }
-                    IconButton(onClick = {
-                        authViewModel.logout()
-                        onLogout()
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "تسجيل الخروج", tint = Color.White)
                     }
                 }
             )

@@ -20,18 +20,16 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // Debug emulator: run `adb reverse tcp:8000 tcp:8000` before launching the app.
-        // The emulator's eth0/wlan0 are DOWN in this environment; adb reverse tunnels
-        // localhost:8000 on the device to the Mac's localhost:8000.
-        // The release build uses HTTPS and never needs cleartext.
-        buildConfigField("String", "API_BASE_URL", "\"https://wathb-api2.onrender.com/api/v1/\"")
     }
 
     buildTypes {
         debug {
             isDebuggable = true
-            buildConfigField("String", "API_BASE_URL", "\"https://wathb-api2.onrender.com/api/v1/\"")
+            // Local override: add wathbApiBaseUrl=http://10.0.2.2:8000/api/v1/ to
+            // ~/.gradle/gradle.properties and run `adb reverse tcp:8000 tcp:8000`.
+            val debugUrl = providers.gradleProperty("wathbApiBaseUrl")
+                .getOrElse("https://wathb-api2.onrender.com/api/v1/")
+            buildConfigField("String", "API_BASE_URL", "\"$debugUrl\"")
         }
         release {
             isMinifyEnabled = true

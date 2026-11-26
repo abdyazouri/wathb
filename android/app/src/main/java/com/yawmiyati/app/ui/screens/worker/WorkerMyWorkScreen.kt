@@ -2,8 +2,11 @@ package com.yawmiyati.app.ui.screens.worker
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -23,7 +26,7 @@ fun WorkerMyWorkScreen(
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
         TabRow(selectedTabIndex = selectedTab) {
             Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
                 Text("طلباتي", modifier = Modifier.padding(vertical = 12.dp))
@@ -31,11 +34,15 @@ fun WorkerMyWorkScreen(
             Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
                 Text("مهامي", modifier = Modifier.padding(vertical = 12.dp))
             }
+            Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 }) {
+                Text("أجوري", modifier = Modifier.padding(vertical = 12.dp))
+            }
         }
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
                 0 -> WorkerApplicationsScreen()
                 1 -> WorkerAssignmentsScreen(onManageAssignment = onManageAssignment)
+                2 -> WorkerWagesScreen()
             }
         }
     }

@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Badge
@@ -23,7 +23,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.yawmiyati.app.ui.screens.NotificationsScreen
 import com.yawmiyati.app.viewmodels.AuthViewModel
 import com.yawmiyati.app.viewmodels.NotificationsViewModel
 
@@ -32,6 +31,8 @@ import com.yawmiyati.app.viewmodels.NotificationsViewModel
 fun BusinessMainScreen(
     onCreateJob: () -> Unit,
     onViewApplications: (jobId: String) -> Unit,
+    onManageAssignment: (assignmentId: String, workerPhone: String, assignmentStatus: String) -> Unit = { _, _, _ -> },
+    onOpenNotifications: () -> Unit = {},
     onLogout: () -> Unit,
     authViewModel: AuthViewModel = viewModel(),
     notificationsViewModel: NotificationsViewModel = viewModel()
@@ -45,14 +46,12 @@ fun BusinessMainScreen(
                 0 -> BusinessHomeScreen(
                     onCreateJob        = onCreateJob,
                     onViewApplications = onViewApplications,
-                    onWages            = { selectedTab = 1 },
-                    onProfile          = { selectedTab = 3 },
-                    onLogout           = {},
-                    onNotifications    = { selectedTab = 2 },
+                    onWages            = { selectedTab = 2 },
+                    onNotifications    = onOpenNotifications,
                     unreadCount        = unreadCount,
                 )
-                1 -> WageObligationsScreen()
-                2 -> NotificationsScreen(onBack = {})
+                1 -> BusinessAssignmentsTab(onManageAssignment = onManageAssignment)
+                2 -> WageObligationsScreen()
                 3 -> BusinessProfileScreen(
                     onBack    = {},
                     onLockApp = {
@@ -77,20 +76,14 @@ fun BusinessMainScreen(
             NavigationBarItem(
                 selected = selectedTab == 1,
                 onClick  = { selectedTab = 1 },
-                icon     = { Icon(Icons.Filled.Payments, contentDescription = "المهام") },
+                icon     = { Icon(Icons.Filled.Group, contentDescription = "المهام") },
                 label    = { Text("المهام") }
             )
             NavigationBarItem(
                 selected = selectedTab == 2,
                 onClick  = { selectedTab = 2 },
-                icon = {
-                    BadgedBox(badge = {
-                        if (unreadCount > 0) Badge { Text(unreadCount.toString()) }
-                    }) {
-                        Icon(Icons.Filled.Notifications, contentDescription = "الإشعارات")
-                    }
-                },
-                label = { Text("الإشعارات") }
+                icon     = { Icon(Icons.Filled.Payments, contentDescription = "الأجور") },
+                label    = { Text("الأجور") }
             )
             NavigationBarItem(
                 selected = selectedTab == 3,

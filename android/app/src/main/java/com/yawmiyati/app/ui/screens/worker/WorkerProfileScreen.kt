@@ -167,21 +167,6 @@ fun WorkerProfileScreen(
                         Text(if (saveState is WorkerProfileSaveState.Saving) "جارٍ الحفظ..." else "حفظ")
                     }
 
-                    if (onLockApp != null) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = onLockApp,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ExitToApp,
-                                contentDescription = null,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Text("قفل التطبيق")
-                        }
-                    }
-
                     if (onLogout != null) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(

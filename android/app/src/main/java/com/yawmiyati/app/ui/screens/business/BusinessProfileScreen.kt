@@ -208,13 +208,6 @@ fun BusinessProfileScreen(
                         Text(if (saveState is BusinessProfileSaveState.Saving) "جارٍ الحفظ..." else "حفظ")
                     }
 
-                    if (onLockApp != null) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedButton(onClick = onLockApp, modifier = Modifier.fillMaxWidth()) {
-                            Icon(Icons.AutoMirrored.Filled.ExitToApp, null, modifier = Modifier.padding(end = 8.dp))
-                            Text("قفل التطبيق")
-                        }
-                    }
                     if (onLogout != null) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(

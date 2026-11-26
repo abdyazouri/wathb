@@ -1,6 +1,5 @@
 package com.yawmiyati.app.ui.screens.worker
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,12 +10,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
+
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
@@ -179,13 +180,12 @@ private fun JobCard(job: JobListingResponse, onClick: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header row: category circle + title/business + جديد badge
+            // Header row: title/business + جديد badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                CategoryCircle(category = job.category)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = job.title,
@@ -224,13 +224,23 @@ private fun JobCard(job: JobListingResponse, onClick: () -> Unit) {
             // Location + date row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = job.locationCity,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.LocationOn,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Text(
+                        text = job.locationCity,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Text(
                     text = formatArabicDate(job.workDate),
                     style = MaterialTheme.typography.bodyMedium,
@@ -259,27 +269,4 @@ private fun JobCard(job: JobListingResponse, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun CategoryCircle(category: String?) {
-    val (emoji, bgColor) = categoryVisual(category)
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .background(bgColor, shape = CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = emoji, style = MaterialTheme.typography.titleMedium)
-    }
-}
-
-private fun categoryVisual(category: String?): Pair<String, Color> = when (category) {
-    "LOADING"      -> "📦" to Color(0xFFB3E5FC)
-    "CLEANING"     -> "🧹" to Color(0xFFB2EBF2)
-    "CONSTRUCTION" -> "🏗️" to Color(0xFFFFCCBC)
-    "AGRICULTURE"  -> "🌿" to Color(0xFFC8E6C9)
-    "DELIVERY"     -> "🚚" to Color(0xFFFFE0B2)
-    "FOOD"         -> "🍽️" to Color(0xFFF8BBD9)
-    "RETAIL"       -> "🛒" to Color(0xFFE1BEE7)
-    else           -> "💼" to Color(0xFFE0E0E0)
-}
 
