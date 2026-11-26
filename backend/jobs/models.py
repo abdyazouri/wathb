@@ -86,7 +86,6 @@ class JobListing(models.Model):
     wage_currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.ILS)
     wage_basis = models.CharField(max_length=20, choices=WageBasis.choices, default=WageBasis.PER_DAY)
     payment_method = models.CharField(max_length=30, choices=PaymentMethod.choices)
-    payment_deadline_days = models.PositiveIntegerField(default=3, help_text="Days after completion")
     attendance_requirements = models.TextField(blank=True)
     cancellation_policy = models.TextField(blank=True)
     additional_conditions = models.TextField(blank=True)
@@ -131,7 +130,6 @@ class JobListing(models.Model):
             "wage_currency": self.wage_currency,
             "wage_basis": self.wage_basis,
             "payment_method": self.payment_method,
-            "payment_deadline_days": self.payment_deadline_days,
             "attendance_requirements": self.attendance_requirements,
             "cancellation_policy": self.cancellation_policy,
             "additional_conditions": self.additional_conditions,

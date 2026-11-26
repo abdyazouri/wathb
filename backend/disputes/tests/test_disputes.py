@@ -47,7 +47,6 @@ def make_job_and_assignment(biz_profile, worker_user):
         wage_currency="ILS",
         wage_basis="PER_DAY",
         payment_method="JAWWAL_PAY",
-        payment_deadline_days=3,
         status=JobListingStatus.PUBLISHED,
     )
     app = JobApplication.objects.create(

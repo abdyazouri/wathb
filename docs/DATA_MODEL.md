@@ -67,7 +67,6 @@ Money amounts are stored as integers in minor units. ILS amounts are in agorot (
 | wage_currency | CharField | ILS / USD |
 | wage_basis | CharField | PER_DAY / PER_TASK / PER_HOUR |
 | payment_method | CharField | CASH / BANK_TRANSFER / OTHER |
-| payment_deadline_days | PositiveIntegerField | days after completion |
 | attendance_requirements | TextField | |
 | cancellation_policy | TextField | |
 | additional_conditions | TextField | |
@@ -152,7 +151,7 @@ Unique constraint: (job, worker)
 | assignment | OneToOne → Assignment | prevents duplicate wage creation |
 | amount | PositiveBigIntegerField | minor units |
 | currency | CharField | |
-| due_date | DateField | |
+| due_date | DateField | the day the work is confirmed finished (wages are paid daily) |
 | status | CharField | PENDING / DUE / DECLARED / AWAITING_ACK / UNDER_REVIEW / DISPUTED / VERIFIED_PAID / REJECTED / CANCELLED |
 | created_at | DateTimeField | |
 | updated_at | DateTimeField | |

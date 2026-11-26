@@ -219,7 +219,6 @@ class JobCloneView(APIView):
             wage_currency=original.wage_currency,
             wage_basis=original.wage_basis,
             payment_method=original.payment_method,
-            payment_deadline_days=original.payment_deadline_days,
             required_skills=original.required_skills,
             attendance_requirements=original.attendance_requirements,
             cancellation_policy=original.cancellation_policy,

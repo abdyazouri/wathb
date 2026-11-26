@@ -47,7 +47,6 @@ def make_job_and_assignment(biz_profile, worker_user, wage_amount=10000):
         wage_currency="ILS",
         wage_basis="PER_DAY",
         payment_method="JAWWAL_PAY",
-        payment_deadline_days=3,
         status=JobListingStatus.PUBLISHED,
     )
     app = JobApplication.objects.create(job=job, worker=worker_user, status=ApplicationStatus.ACCEPTED)
@@ -92,6 +91,20 @@ class WageObligationCreationTests(APITestCase):
         obligation = make_obligation(assignment, wage_amount=15000)
         self.assertEqual(obligation.amount, 15000)
         self.assertEqual(obligation.currency, "ILS")
+
+    def test_wage_is_due_the_day_the_work_is_confirmed(self):
+        # Wathb pays daily: no deadline in days, the wage is due as soon as the work is done.
+        from django.utils import timezone
+        from assignments.views import _create_wage_obligation
+        _, biz_profile = make_business("+970599013007")
+        worker = make_worker("+970599013008")
+        job, assignment = make_job_and_assignment(biz_profile, worker)
+        assignment.terms_snapshot = dict(job.material_terms_snapshot(), work_date="2026-11-01")
+        assignment.save(update_fields=["terms_snapshot"])
+        _create_wage_obligation(assignment)
+        obligation = WageObligation.objects.get(assignment=assignment)
+        self.assertEqual(obligation.due_date, timezone.localdate())
+        self.assertNotIn("payment_deadline_days", job.material_terms_snapshot())
 
     def test_only_one_obligation_per_assignment(self):
         biz_user, biz_profile = make_business("+970599013005")

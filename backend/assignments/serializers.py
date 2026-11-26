@@ -27,7 +27,6 @@ class AssignmentSerializer(serializers.ModelSerializer):
     job_wage_currency = serializers.CharField(source="job.wage_currency", read_only=True)
     job_wage_basis = serializers.CharField(source="job.wage_basis", read_only=True)
     job_payment_method = serializers.CharField(source="job.payment_method", read_only=True)
-    job_payment_deadline_days = serializers.IntegerField(source="job.payment_deadline_days", read_only=True)
 
     def get_worker_name(self, obj):
         try:
@@ -43,7 +42,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
             "job_work_date", "job_start_time", "job_end_time",
             "job_location_city", "job_location_address",
             "job_wage_amount", "job_wage_currency", "job_wage_basis",
-            "job_payment_method", "job_payment_deadline_days",
+            "job_payment_method",
             "terms_snapshot", "status", "offered_at", "accepted_at",
             "cancelled_at", "cancellation_reason",
         ]

@@ -48,7 +48,6 @@ def make_job(business_profile, **kwargs):
         wage_currency="ILS",
         wage_basis="PER_DAY",
         payment_method="JAWWAL_PAY",
-        payment_deadline_days=3,
         status=JobListingStatus.DRAFT,
         is_funded=False,
     )
@@ -315,7 +314,7 @@ class ApplicationAssignmentIdTests(APITestCase):
             work_date=datetime.date.today() + datetime.timedelta(days=1),
             start_time="08:00", end_time="17:00", num_workers_needed=1,
             wage_amount=5000, wage_currency="ILS", wage_basis="PER_DAY",
-            payment_method="JAWWAL_PAY", payment_deadline_days=3,
+            payment_method="JAWWAL_PAY",
             status=JobListingStatus.PUBLISHED,
         )
         self.app = JobApplication.objects.create(

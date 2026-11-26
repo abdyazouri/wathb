@@ -20,7 +20,7 @@ class JobListingSerializer(serializers.ModelSerializer):
             "title", "description", "location_address", "location_city",
             "work_date", "start_time", "end_time", "num_workers_needed",
             "required_skills", "wage_amount", "wage_currency", "wage_basis",
-            "wage_display", "payment_method", "payment_deadline_days",
+            "wage_display", "payment_method",
             "attendance_requirements", "cancellation_policy", "additional_conditions",
             "thumbnail_url",
             "status", "is_funded", "is_new", "published_at", "version", "created_at",
@@ -63,7 +63,7 @@ class JobListingCreateSerializer(serializers.ModelSerializer):
             "title", "description", "location_address", "location_city",
             "work_date", "start_time", "end_time", "num_workers_needed",
             "required_skills", "wage_amount", "wage_currency", "wage_basis",
-            "payment_method", "payment_deadline_days",
+            "payment_method",
             "attendance_requirements", "cancellation_policy", "additional_conditions",
             "is_funded",
         ]

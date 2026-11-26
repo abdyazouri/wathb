@@ -567,7 +567,6 @@ def _notify(recipient, notification_type, title, body, related_model, related_id
 def _create_wage_obligation(assignment):
     from django.db import IntegrityError
     from wages.models import WageObligation
-    from datetime import date, timedelta
 
     if WageObligation.objects.filter(assignment=assignment).exists():
         return
@@ -575,14 +574,9 @@ def _create_wage_obligation(assignment):
     snapshot = assignment.terms_snapshot
     wage_amount = snapshot.get("wage_amount", 0)
     wage_currency = snapshot.get("wage_currency", "ILS")
-    payment_deadline_days = snapshot.get("payment_deadline_days", 3)
 
-    try:
-        work_date = date.fromisoformat(snapshot.get("work_date", str(date.today())))
-    except (ValueError, TypeError):
-        work_date = date.today()
-
-    due_date = work_date + timedelta(days=payment_deadline_days)
+    # Wathb pays daily: the wage is due the day the work is confirmed finished.
+    due_date = timezone.localdate()
 
     try:
         WageObligation.objects.create(

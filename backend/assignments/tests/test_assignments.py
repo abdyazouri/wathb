@@ -49,7 +49,6 @@ def make_job(business_profile, **kwargs):
         wage_currency="ILS",
         wage_basis="PER_DAY",
         payment_method="JAWWAL_PAY",
-        payment_deadline_days=3,
         status=JobListingStatus.PUBLISHED,
         is_funded=False,
     )
@@ -91,7 +90,6 @@ class AssignmentAcceptTests(APITestCase):
         snapshot = self.assignment.terms_snapshot
         self.assertEqual(snapshot["wage_amount"], self.job.wage_amount)
         self.assertEqual(snapshot["wage_currency"], self.job.wage_currency)
-        self.assertEqual(snapshot["payment_deadline_days"], self.job.payment_deadline_days)
         self.assertEqual(str(self.job.id), snapshot["job_id"])
 
     def test_snapshot_preserves_original_wage_after_job_edit(self):
@@ -351,7 +349,6 @@ class AssignmentSerializerTermsTests(APITestCase):
         self.assertEqual(item["job_wage_amount"], self.job.wage_amount)
         self.assertEqual(item["job_wage_currency"], self.job.wage_currency)
         self.assertEqual(item["job_payment_method"], self.job.payment_method)
-        self.assertEqual(item["job_payment_deadline_days"], self.job.payment_deadline_days)
         self.assertEqual(item["job_location_city"], self.job.location_city)
 
     def test_job_terms_survive_after_accept(self):

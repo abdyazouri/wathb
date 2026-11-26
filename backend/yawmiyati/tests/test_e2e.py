@@ -67,7 +67,6 @@ def make_job(biz_profile, is_funded=False, job_status=JobListingStatus.PENDING_R
         wage_currency="ILS",
         wage_basis="PER_DAY",
         payment_method="JAWWAL_PAY",
-        payment_deadline_days=3,
         status=job_status,
         is_funded=is_funded,
     )
