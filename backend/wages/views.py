@@ -253,14 +253,21 @@ class AdminVerifyPaymentView(APIView):
         review_notes = request.data.get("review_notes", "")
 
         if action_name == "verify":
-            if declaration.status not in (
-                PaymentDeclarationStatus.SUBMITTED,
-                PaymentDeclarationStatus.ACKNOWLEDGED,
-            ):
+            # Admin verification settles a dispute only. While the worker can still
+            # acknowledge or dispute, the worker decides (or the admin calls by phone).
+            if obligation.status != WageObligationStatus.DISPUTED:
+                return Response(
+                    {"detail": f"لا يمكن التحقق من الدفع إلا لأجر متنازع عليه. حالة الأجر «{obligation.get_status_display()}»."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if declaration.status != PaymentDeclarationStatus.DISPUTED:
                 return Response(
                     {"detail": f"لا يمكن التحقق من إعلان دفع حالته «{declaration.get_status_display()}»."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            review_notes = (review_notes or "").strip()
+            if not review_notes:
+                return Response({"detail": "يجب كتابة ملاحظات المراجعة (review_notes) عند التحقق."}, status=status.HTTP_400_BAD_REQUEST)
             declaration.status = PaymentDeclarationStatus.VERIFIED
             declaration.reviewed_by = request.user
             declaration.reviewed_at = timezone.now()
