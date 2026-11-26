@@ -29,6 +29,14 @@ open class AssignmentRepository {
         }
     }
 
+    open suspend fun getAssignment(id: String): AssignmentResult<AssignmentResponse> {
+        return try {
+            val response = api.getAssignment(id)
+            if (response.isSuccessful) AssignmentResult.Success(response.body()!!)
+            else AssignmentResult.Error(parseError(response.errorBody()?.string()), response.code() == 401)
+        } catch (e: Exception) { AssignmentResult.Error(networkMessage(e)) }
+    }
+
     open suspend fun acceptAssignment(id: String): AssignmentResult<AssignmentResponse> {
         return try {
             val response = api.acceptAssignment(id)

@@ -58,6 +58,11 @@ class StatusLabelsTest {
         assertAllMapped(values, StatusLabels::wageForWorker)
     }
 
+    @Test fun `every attendance and completion status has a label`() {
+        assertAllMapped(serverValues("assignments", "AttendanceStatus"), StatusLabels::attendance)
+        assertAllMapped(serverValues("assignments", "CompletionStatus"), StatusLabels::completion)
+    }
+
     @Test fun `every dispute status has a label`() =
         assertAllMapped(serverValues("disputes", "DisputeStatus"), StatusLabels::dispute)
 

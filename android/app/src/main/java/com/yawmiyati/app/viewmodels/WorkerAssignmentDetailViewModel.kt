@@ -2,6 +2,7 @@ package com.yawmiyati.app.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yawmiyati.app.data.api.AssignmentResponse
 import com.yawmiyati.app.data.api.AttendanceResponse
 import com.yawmiyati.app.data.api.AttendanceSubmitRequest
 import com.yawmiyati.app.data.api.CompletionResponse
@@ -50,6 +51,10 @@ class WorkerAssignmentDetailViewModel(
     private val _actionState = MutableStateFlow<WorkerAssignmentActionState>(WorkerAssignmentActionState.Idle)
     val actionState: StateFlow<WorkerAssignmentActionState> = _actionState
 
+    /** The assignment as the server has it now (status, work date and start time). */
+    private val _assignment = MutableStateFlow<AssignmentResponse?>(null)
+    val assignment: StateFlow<AssignmentResponse?> = _assignment
+
     private val _wagesForAssignment = MutableStateFlow<WageObligationResponse?>(null)
     val wagesForAssignment: StateFlow<WageObligationResponse?> = _wagesForAssignment
 
@@ -58,9 +63,17 @@ class WorkerAssignmentDetailViewModel(
     fun load(assignmentId: String) {
         if (currentAssignmentId == assignmentId) return
         currentAssignmentId = assignmentId
+        loadAssignment(assignmentId)
         loadAttendance(assignmentId)
         loadCompletion(assignmentId)
         loadWagesForAssignment(assignmentId)
+    }
+
+    private fun loadAssignment(assignmentId: String) {
+        viewModelScope.launch {
+            val r = repository.getAssignment(assignmentId)
+            if (r is AssignmentResult.Success) _assignment.value = r.data
+        }
     }
 
     private fun loadWagesForAssignment(assignmentId: String) {
@@ -149,6 +162,7 @@ class WorkerAssignmentDetailViewModel(
                 is AssignmentResult.Success -> {
                     _actionState.value = WorkerAssignmentActionState.Success
                     _completionState.value = WorkerCompletionUiState.Submitted(r.data)
+                    loadAssignment(assignmentId)  // now ACTIVE
                 }
                 is AssignmentResult.Error -> _actionState.value = WorkerAssignmentActionState.Error(r.message)
             }
@@ -175,6 +189,9 @@ class WorkerAssignmentDetailViewModel(
         repository.confirmCompletion(assignmentId).also { result ->
             if (result is AssignmentResult.Success) {
                 _completionState.value = WorkerCompletionUiState.Submitted(result.data)
+                // COMPLETED: the wage now exists.
+                loadAssignment(assignmentId)
+                loadWagesForAssignment(assignmentId)
             }
         }
     }
@@ -209,7 +226,11 @@ class WorkerAssignmentDetailViewModel(
     }
 
     fun cancelAssignment(assignmentId: String, reason: String) =
-        performAction { repository.cancelAssignment(assignmentId, reason) }
+        performAction {
+            repository.cancelAssignment(assignmentId, reason).also { result ->
+                if (result is AssignmentResult.Success) _assignment.value = result.data
+            }
+        }
 
     fun resetActionState() {
         _actionState.value = WorkerAssignmentActionState.Idle

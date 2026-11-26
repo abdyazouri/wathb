@@ -53,13 +53,19 @@ import com.yawmiyati.app.viewmodels.AssignmentActionState
 import com.yawmiyati.app.viewmodels.AssignmentsUiState
 import com.yawmiyati.app.viewmodels.AssignmentsViewModel
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.viewmodels.workStart
+import com.yawmiyati.app.viewmodels.splitMyWork
+import com.yawmiyati.app.viewmodels.nowInGaza
+import java.time.LocalDateTime
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkerAssignmentsScreen(
     onBack: (() -> Unit)? = null,
     onManageAssignment: (assignmentId: String, workerPhone: String, businessPhone: String, assignmentStatus: String) -> Unit = { _, _, _, _ -> },
-    viewModel: AssignmentsViewModel = viewModel()
+    viewModel: AssignmentsViewModel = viewModel(),
+    now: LocalDateTime = nowInGaza(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val actionState by viewModel.actionState.collectAsState()
@@ -132,7 +138,7 @@ fun WorkerAssignmentsScreen(
         when (val state = uiState) {
             is AssignmentsUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(padding))
             is AssignmentsUiState.Empty   -> EmptyState(
-                message = "لا توجد مهام حالياً",
+                message = NO_TASKS_YET,
                 modifier = Modifier.padding(padding).fillMaxSize()
             )
             is AssignmentsUiState.Error   -> ErrorMessage(
@@ -141,16 +147,26 @@ fun WorkerAssignmentsScreen(
                 modifier = Modifier.padding(padding)
             )
             is AssignmentsUiState.Success -> {
-                LazyColumn(
+                // Only jobs whose start time has come; earlier ones are in «طلباتي».
+                val tasks = splitMyWork(emptyList(), state.assignments, now).tasks
+                PullToRefreshBox(
+                    isRefreshing = false,
+                    onRefresh = { viewModel.loadAssignments() },
+                    modifier = Modifier.padding(padding).fillMaxSize()
+                ) {
+                if (tasks.isEmpty()) {
+                    EmptyState(message = NO_TASKS_YET, modifier = Modifier.fillMaxSize())
+                } else LazyColumn(
                     modifier = Modifier
-                        .padding(padding)
+                        .fillMaxSize()
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     item { Spacer(Modifier.height(8.dp)) }
-                    items(state.assignments, key = { it.id }) { assignment ->
+                    items(tasks, key = { it.id }) { assignment ->
                         AssignmentCard(
                             assignment = assignment,
+                            started = true,
                             isActionLoading = actionState is AssignmentActionState.Loading,
                             onAccept  = { viewModel.acceptAssignment(assignment.id) },
                             onDecline = { viewModel.declineAssignment(assignment.id) },
@@ -161,14 +177,19 @@ fun WorkerAssignmentsScreen(
                     }
                     item { Spacer(Modifier.height(16.dp)) }
                 }
+                }
             }
         }
     }
 }
 
+private const val NO_TASKS_YET = "لا توجد مهام بدأت بعد.\nالمهمة المقبولة تنتقل إلى هنا عند بدء وقت العمل."
+
+/** [started]: the job's start time has come («مهامي»); otherwise it is shown in «طلباتي». */
 @Composable
-private fun AssignmentCard(
+internal fun AssignmentCard(
     assignment: AssignmentResponse,
+    started: Boolean,
     isActionLoading: Boolean,
     onAccept: () -> Unit,
     onDecline: () -> Unit,
@@ -377,8 +398,26 @@ private fun AssignmentCard(
                         }
                     }
                 }
-                // ACCEPTED/ACTIVE: worker waits for work day — no action button
-                // DECLINED/CANCELLED/terminal: no button
+                "ACCEPTED", "ACTIVE" -> if (started) {
+                    Text(
+                        "سجّل حضورك وأنهِ المهمة من صفحة المهمة.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(onClick = onManage, modifier = Modifier.fillMaxWidth()) { Text("فتح المهمة") }
+                } else {
+                    val start = assignment.workStart()
+                    if (start != null) {
+                        Text(
+                            "تبدأ ${formatArabicDate(start.toLocalDate().toString())} الساعة " +
+                                "${formatArabicTime(start.toLocalTime().toString())}، وتنتقل إلى «مهامي» عند بدايتها.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                    OutlinedButton(onClick = onManage, modifier = Modifier.fillMaxWidth()) { Text("التفاصيل") }
+                }
+                // DECLINED/CANCELLED: no action
             }
         }
     }

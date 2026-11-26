@@ -80,6 +80,21 @@ object StatusLabels {
         "AWAITING_ACK" to "بانتظار تأكيدك",
     )
 
+    // assignments.AttendanceStatus
+    internal val ATTENDANCE = mapOf(
+        "SUBMITTED" to "بانتظار التأكيد",
+        "CONFIRMED" to "مؤكَّد",
+        "DISPUTED" to "معترَض عليه",
+        "CANCELLED" to "ملغى",
+    )
+
+    // assignments.CompletionStatus
+    internal val COMPLETION = mapOf(
+        "SUBMITTED" to "بانتظار التأكيد",
+        "CONFIRMED" to "مؤكَّد",
+        "DISPUTED" to "معترَض عليه",
+    )
+
     // disputes.DisputeStatus
     internal val DISPUTE = mapOf(
         "OPEN" to "مفتوح",
@@ -110,6 +125,8 @@ object StatusLabels {
     fun assignment(status: String?) = label("assignment", ASSIGNMENT, status)
     fun wageForBusiness(status: String?) = label("wage", WAGE_FOR_BUSINESS, status)
     fun wageForWorker(status: String?) = label("wage", WAGE_FOR_WORKER, status)
+    fun attendance(status: String?) = label("attendance", ATTENDANCE, status)
+    fun completion(status: String?) = label("completion", COMPLETION, status)
     fun dispute(status: String?) = label("dispute", DISPUTE, status)
     fun verificationForAdmin(status: String?) = label("verification", VERIFICATION_FOR_ADMIN, status)
     fun verificationForOwner(status: String?) = label("verification", VERIFICATION_FOR_OWNER, status)

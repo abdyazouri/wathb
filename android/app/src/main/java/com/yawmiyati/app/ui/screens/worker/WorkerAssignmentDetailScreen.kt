@@ -48,6 +48,11 @@ import com.yawmiyati.app.viewmodels.WorkerAssignmentActionState
 import com.yawmiyati.app.viewmodels.WorkerAssignmentDetailViewModel
 import com.yawmiyati.app.ui.utils.toArabicAmountDisplay
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.ui.utils.formatArabicTime
+import com.yawmiyati.app.ui.utils.formatArabicDate
+import com.yawmiyati.app.viewmodels.canWorkerCancel
+import com.yawmiyati.app.viewmodels.hasStarted
+import com.yawmiyati.app.viewmodels.nowInGaza
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +73,12 @@ fun WorkerAssignmentDetailScreen(
     var disputeReason by remember { mutableStateOf("") }
 
     val wages by viewModel.wagesForAssignment.collectAsState()
+    val assignment by viewModel.assignment.collectAsState()
+    val attendanceState by viewModel.attendanceState.collectAsState()
+    val completionState by viewModel.completionState.collectAsState()
+    // The navigation argument can be stale (accepted, finished, cancelled since); prefer the server's.
+    val status = assignment?.status ?: assignmentStatus
+    val now = nowInGaza()
 
     LaunchedEffect(assignmentId) { viewModel.load(assignmentId) }
 
@@ -195,16 +206,34 @@ fun WorkerAssignmentDetailScreen(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    when (assignmentStatus) {
+                    when (status) {
                         "OFFERED" -> {
                             Text("عرض مهمة — بانتظار قرارك", style = MaterialTheme.typography.bodyLarge)
                         }
                         "ACCEPTED", "ACTIVE" -> {
-                            Text(
-                                "مقبولة — في انتظار يوم العمل",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.tertiary
-                            )
+                            val current = assignment
+                            if (current != null && !current.hasStarted(now)) {
+                                Text(
+                                    "مقبولة — تبدأ ${formatArabicDate(current.jobWorkDate.orEmpty())} " +
+                                        "الساعة ${formatArabicTime(current.jobStartTime.orEmpty())}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            } else {
+                                WorkerWorkSection(
+                                    workerPhone = current?.workerPhone ?: workerPhone,
+                                    today = now.toLocalDate().toString(),
+                                    attendanceState = attendanceState,
+                                    completionState = completionState,
+                                    isLoading = isLoading,
+                                    onCheckIn = { viewModel.submitAttendance(assignmentId, now.toLocalDate().toString(), "") },
+                                    onConfirmAttendance = { viewModel.confirmAttendance(assignmentId, it) },
+                                    onDisputeAttendance = { viewModel.disputeAttendance(assignmentId, it) },
+                                    onFinish = { hours, notes -> viewModel.submitCompletion(assignmentId, hours, notes) },
+                                    onConfirmCompletion = { viewModel.confirmCompletion(assignmentId) },
+                                    onDisputeCompletion = { viewModel.disputeCompletion(assignmentId) },
+                                )
+                            }
                         }
                         "COMPLETED" -> {
                             val wage = wages
@@ -279,7 +308,7 @@ fun WorkerAssignmentDetailScreen(
                         }
                         else -> {
                             Text(
-                                StatusLabels.assignment(assignmentStatus),
+                                StatusLabels.assignment(status),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -288,8 +317,8 @@ fun WorkerAssignmentDetailScreen(
                 }
             }
 
-            // Cancel button (ACCEPTED only)
-            if (assignmentStatus == "ACCEPTED") {
+            // Cancel: accepted, and only before the work day (the server refuses after).
+            if (assignment?.canWorkerCancel(now.toLocalDate()) ?: (status == "ACCEPTED")) {
                 OutlinedButton(
                     onClick = { showCancelDialog = true },
                     enabled = !isLoading,

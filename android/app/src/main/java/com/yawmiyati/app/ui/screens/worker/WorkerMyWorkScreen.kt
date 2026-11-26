@@ -18,6 +18,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.yawmiyati.app.viewmodels.nowInGaza
+import com.yawmiyati.app.viewmodels.WorkerApplicationsViewModel
+import com.yawmiyati.app.viewmodels.AssignmentsViewModel
+import kotlinx.coroutines.delay
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.LaunchedEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +32,20 @@ fun WorkerMyWorkScreen(
     onManageAssignment: (assignmentId: String, workerPhone: String, businessPhone: String, assignmentStatus: String) -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    // Shared by «طلباتي» and «مهامي»: a job moves from one to the other at its start time.
+    val applicationsViewModel: WorkerApplicationsViewModel = viewModel()
+    val assignmentsViewModel: AssignmentsViewModel = viewModel()
+    val now by produceState(nowInGaza()) {
+        while (true) {
+            delay(60_000)
+            value = nowInGaza()
+        }
+    }
+    // Fresh lists each time the worker comes back (e.g. from the task details).
+    LaunchedEffect(Unit) {
+        applicationsViewModel.load()
+        assignmentsViewModel.loadAssignments()
+    }
 
     Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)) {
         TabRow(selectedTabIndex = selectedTab) {
@@ -40,8 +61,17 @@ fun WorkerMyWorkScreen(
         }
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
-                0 -> WorkerApplicationsScreen()
-                1 -> WorkerAssignmentsScreen(onManageAssignment = onManageAssignment)
+                0 -> WorkerApplicationsScreen(
+                    viewModel = applicationsViewModel,
+                    assignmentsViewModel = assignmentsViewModel,
+                    now = now,
+                    onManageAssignment = onManageAssignment,
+                )
+                1 -> WorkerAssignmentsScreen(
+                    viewModel = assignmentsViewModel,
+                    now = now,
+                    onManageAssignment = onManageAssignment,
+                )
                 2 -> WorkerWagesScreen()
             }
         }

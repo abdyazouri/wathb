@@ -11,6 +11,9 @@ interface AssignmentsApi {
     @GET("assignments/")
     suspend fun listAssignments(): Response<PaginatedResponse<AssignmentResponse>>
 
+    @GET("assignments/{id}/")
+    suspend fun getAssignment(@Path("id") id: String): Response<AssignmentResponse>
+
     @POST("assignments/{id}/accept/")
     suspend fun acceptAssignment(@Path("id") id: String): Response<AssignmentResponse>
 

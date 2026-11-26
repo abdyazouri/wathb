@@ -46,15 +46,28 @@ import com.yawmiyati.app.viewmodels.WorkerAppsActionState
 import com.yawmiyati.app.viewmodels.WorkerAppsUiState
 import com.yawmiyati.app.viewmodels.WorkerApplicationsViewModel
 import com.yawmiyati.app.ui.utils.StatusLabels
+import com.yawmiyati.app.viewmodels.splitMyWork
+import com.yawmiyati.app.viewmodels.nowInGaza
+import com.yawmiyati.app.viewmodels.MyApplicationsItem
+import com.yawmiyati.app.viewmodels.AssignmentsViewModel
+import com.yawmiyati.app.viewmodels.AssignmentsUiState
+import com.yawmiyati.app.viewmodels.AssignmentActionState
+import java.time.LocalDateTime
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkerApplicationsScreen(
     onBack: (() -> Unit)? = null,
-    viewModel: WorkerApplicationsViewModel = viewModel()
+    viewModel: WorkerApplicationsViewModel = viewModel(),
+    assignmentsViewModel: AssignmentsViewModel = viewModel(),
+    now: LocalDateTime = nowInGaza(),
+    onManageAssignment: (assignmentId: String, workerPhone: String, businessPhone: String, assignmentStatus: String) -> Unit = { _, _, _, _ -> },
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val actionState by viewModel.actionState.collectAsState()
+    val assignmentsState by assignmentsViewModel.uiState.collectAsState()
+    val assignmentActionState by assignmentsViewModel.actionState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(actionState) {
@@ -62,6 +75,24 @@ fun WorkerApplicationsScreen(
             snackbarHostState.showSnackbar((actionState as WorkerAppsActionState.Error).message)
             viewModel.resetActionState()
         }
+    }
+    LaunchedEffect(assignmentActionState) {
+        when (val s = assignmentActionState) {
+            is AssignmentActionState.Success -> {
+                viewModel.load()  // accepting/declining an offer changes the application too
+                snackbarHostState.showSnackbar("تم بنجاح")
+                assignmentsViewModel.resetActionState()
+            }
+            is AssignmentActionState.Error -> {
+                snackbarHostState.showSnackbar(s.message)
+                assignmentsViewModel.resetActionState()
+            }
+            else -> {}
+        }
+    }
+    val reload = {
+        viewModel.load()
+        assignmentsViewModel.loadAssignments()
     }
 
     Scaffold(
@@ -77,33 +108,61 @@ fun WorkerApplicationsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        when (val state = uiState) {
-            is WorkerAppsUiState.Loading -> LoadingIndicator(modifier = Modifier.padding(padding))
-            is WorkerAppsUiState.Empty   -> EmptyState(
-                message = "لم تتقدم لأي وظيفة بعد",
-                modifier = Modifier.padding(padding).fillMaxSize()
-            )
-            is WorkerAppsUiState.Error   -> ErrorMessage(
-                message = state.message,
-                onRetry = { viewModel.load() },
+        val appsError = uiState as? WorkerAppsUiState.Error
+        val assignmentsError = assignmentsState as? AssignmentsUiState.Error
+        when {
+            uiState is WorkerAppsUiState.Loading || assignmentsState is AssignmentsUiState.Loading ->
+                LoadingIndicator(modifier = Modifier.padding(padding))
+            appsError != null || assignmentsError != null -> ErrorMessage(
+                message = appsError?.message ?: assignmentsError!!.message,
+                onRetry = reload,
                 modifier = Modifier.padding(padding)
             )
-            is WorkerAppsUiState.Success -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .padding(padding)
-                        .padding(horizontal = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+            else -> {
+                val applications = (uiState as? WorkerAppsUiState.Success)?.applications.orEmpty()
+                val assignments = (assignmentsState as? AssignmentsUiState.Success)?.assignments.orEmpty()
+                val items = splitMyWork(applications, assignments, now).applications
+                PullToRefreshBox(
+                    isRefreshing = false,
+                    onRefresh = reload,
+                    modifier = Modifier.padding(padding).fillMaxSize()
                 ) {
-                    item { Spacer(Modifier.height(8.dp)) }
-                    items(state.applications, key = { it.id }) { app ->
-                        ApplicationCard(
-                            app = app,
-                            isActionLoading = actionState is WorkerAppsActionState.Loading,
-                            onWithdraw = { viewModel.withdraw(app.job, app.id) }
-                        )
+                    if (items.isEmpty()) {
+                        EmptyState(message = "لم تتقدم لأي وظيفة بعد", modifier = Modifier.fillMaxSize())
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item { Spacer(Modifier.height(8.dp)) }
+                            items(items, key = {
+                                when (it) {
+                                    is MyApplicationsItem.Offer -> "offer-${it.assignment.id}"
+                                    is MyApplicationsItem.Application -> "app-${it.application.id}"
+                                }
+                            }) { item ->
+                                when (item) {
+                                    is MyApplicationsItem.Offer -> {
+                                        val a = item.assignment
+                                        AssignmentCard(
+                                            assignment = a,
+                                            started = false,
+                                            isActionLoading = assignmentActionState is AssignmentActionState.Loading,
+                                            onAccept = { assignmentsViewModel.acceptAssignment(a.id) },
+                                            onDecline = { assignmentsViewModel.declineAssignment(a.id) },
+                                            onManage = { onManageAssignment(a.id, a.workerPhone, a.businessPhone ?: "", a.status) },
+                                        )
+                                    }
+                                    is MyApplicationsItem.Application -> ApplicationCard(
+                                        app = item.application,
+                                        isActionLoading = actionState is WorkerAppsActionState.Loading,
+                                        onWithdraw = { viewModel.withdraw(item.application.job, item.application.id) }
+                                    )
+                                }
+                            }
+                            item { Spacer(Modifier.height(16.dp)) }
+                        }
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
                 }
             }
         }
