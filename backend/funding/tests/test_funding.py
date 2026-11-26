@@ -51,7 +51,7 @@ def make_job(biz_profile, is_funded=False, job_status=JobListingStatus.PENDING_R
         wage_amount=10000,
         wage_currency="ILS",
         wage_basis="PER_DAY",
-        payment_method="CASH",
+        payment_method="JAWWAL_PAY",
         payment_deadline_days=3,
         status=job_status,
         is_funded=is_funded,
@@ -178,6 +178,20 @@ class FunderProposalAccessTests(APITestCase):
             },
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_non_ils_proposal_rejected(self):
+        self.client.force_authenticate(user=self.funder)
+        response = self.client.post(
+            reverse("funding-proposal-list"),
+            {
+                "title": "Dollar Fund",
+                "description": "For workers",
+                "total_amount": 50000,
+                "currency": "USD",
+            },
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("currency", response.data["fields"])
 
     def test_worker_cannot_create_proposal(self):
         worker = make_user("0599030032", Role.WORKER)

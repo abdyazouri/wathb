@@ -48,7 +48,7 @@ def make_job(business_profile, **kwargs):
         wage_amount=10000,
         wage_currency="ILS",
         wage_basis="PER_DAY",
-        payment_method="CASH",
+        payment_method="JAWWAL_PAY",
         payment_deadline_days=3,
         status=JobListingStatus.PUBLISHED,
         is_funded=False,
@@ -523,6 +523,19 @@ class BusinessCompleteTests(APITestCase):
         from wages.models import WageObligationStatus
         obligation = WageObligation.objects.get(assignment=self.assignment)
         self.assertEqual(obligation.status, WageObligationStatus.AWAITING_ACK)
+
+    def test_complete_declares_with_jobs_payment_method(self):
+        from wages.models import PaymentDeclaration
+        self.job.work_date = datetime.date.today()
+        self.job.payment_method = "PALPAY"
+        self.job.save(update_fields=["work_date", "payment_method"])
+        self.assignment.terms_snapshot = self.job.material_terms_snapshot()
+        self.assignment.save(update_fields=["terms_snapshot"])
+        self.client.force_authenticate(user=self.biz_user)
+        self.client.post(reverse("business-complete-assignment", args=[self.assignment.pk]))
+        declaration = PaymentDeclaration.objects.get(wage_obligation__assignment=self.assignment)
+        self.assertEqual(declaration.payment_method, "PALPAY")
+        self.assertEqual(declaration.currency, "ILS")
 
     def test_cannot_complete_before_work_date(self):
         self.job.work_date = datetime.date.today() + datetime.timedelta(days=1)

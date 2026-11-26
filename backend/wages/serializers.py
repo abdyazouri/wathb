@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from wages.models import WageObligation, PaymentDeclaration, PaymentEvidence, PaymentMethod
+from wages.models import WageObligation, PaymentDeclaration, PaymentEvidence
 
 
 class WageObligationSerializer(serializers.ModelSerializer):
@@ -54,14 +54,6 @@ class PaymentDeclarationCreateSerializer(serializers.ModelSerializer):
     def validate_declared_amount(self, value):
         if value <= 0:
             raise serializers.ValidationError("Declared amount must be positive.")
-        return value
-
-    def validate_payment_method(self, value):
-        allowed = [m.value for m in PaymentMethod]
-        if value not in allowed:
-            raise serializers.ValidationError(
-                f"Invalid payment method. Choose from: {', '.join(allowed)}."
-            )
         return value
 
 

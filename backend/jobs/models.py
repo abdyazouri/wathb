@@ -21,14 +21,15 @@ class WageBasis(models.TextChoices):
 
 
 class PaymentMethod(models.TextChoices):
-    CASH = "CASH", "Cash"
-    BANK_TRANSFER = "BANK_TRANSFER", "Bank Transfer"
-    OTHER = "OTHER", "Other"
+    # Owner decision: no cash. Only these three electronic methods are accepted.
+    JAWWAL_PAY = "JAWWAL_PAY", "جوال باي"
+    PALPAY = "PALPAY", "بال باي"
+    BANK_OF_PALESTINE = "BANK_OF_PALESTINE", "بنك فلسطين"
 
 
 class Currency(models.TextChoices):
-    ILS = "ILS", "Israeli New Shekel"
-    USD = "USD", "US Dollar"
+    # Owner decision: ILS only. Any other currency is rejected by the API.
+    ILS = "ILS", "شيكل"
 
 
 class JobListingStatus(models.TextChoices):
@@ -84,7 +85,7 @@ class JobListing(models.Model):
     wage_amount = models.PositiveBigIntegerField(help_text="Amount in minor currency units (e.g. agorot for ILS)")
     wage_currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.ILS)
     wage_basis = models.CharField(max_length=20, choices=WageBasis.choices, default=WageBasis.PER_DAY)
-    payment_method = models.CharField(max_length=30, choices=PaymentMethod.choices, default=PaymentMethod.CASH)
+    payment_method = models.CharField(max_length=30, choices=PaymentMethod.choices)
     payment_deadline_days = models.PositiveIntegerField(default=3, help_text="Days after completion")
     attendance_requirements = models.TextField(blank=True)
     cancellation_policy = models.TextField(blank=True)

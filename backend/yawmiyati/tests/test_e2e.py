@@ -66,7 +66,7 @@ def make_job(biz_profile, is_funded=False, job_status=JobListingStatus.PENDING_R
         wage_amount=wage_amount,
         wage_currency="ILS",
         wage_basis="PER_DAY",
-        payment_method="CASH",
+        payment_method="JAWWAL_PAY",
         payment_deadline_days=3,
         status=job_status,
         is_funded=is_funded,
@@ -136,14 +136,14 @@ class ScenarioAHappyPath(APITestCase):
                 "declared_amount": 10000,
                 "currency": "ILS",
                 "payment_date": str(datetime.date.today()),
-                "payment_method": "CASH",
+                "payment_method": "JAWWAL_PAY",
             },
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
         obligation.refresh_from_db()
         self.assertEqual(obligation.status, WageObligationStatus.AWAITING_ACK)
 
-        # Step 8: Worker acknowledges cash receipt — final verification for Gaza cash economy
+        # Step 8: Worker acknowledges receipt — final verification
         self.client.force_authenticate(user=self.worker)
         r = self.client.post(reverse("wage-acknowledge", args=[obligation.pk]))
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
@@ -189,7 +189,7 @@ class ScenarioBDisputedWage(APITestCase):
             declared_amount=10000,
             currency="ILS",
             payment_date=datetime.date.today(),
-            payment_method="CASH",
+            payment_method="JAWWAL_PAY",
             status=PaymentDeclarationStatus.SUBMITTED,
         )
 

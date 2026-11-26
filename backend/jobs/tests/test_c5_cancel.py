@@ -40,7 +40,7 @@ def make_job(bp, status=JobListingStatus.PUBLISHED, days_ahead=2):
         location_city="Gaza", work_date=datetime.date.today() + datetime.timedelta(days=days_ahead),
         start_time="08:00", end_time="17:00", num_workers_needed=1,
         wage_amount=5000, wage_currency="ILS", wage_basis="PER_DAY",
-        payment_method="CASH", payment_deadline_days=3, status=status,
+        payment_method="JAWWAL_PAY", payment_deadline_days=3, status=status,
     )
 
 

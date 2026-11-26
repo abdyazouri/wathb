@@ -1,6 +1,7 @@
 import uuid
 from django.db import models
 from django.conf import settings
+from jobs.models import Currency
 
 
 class FundingProposalStatus(models.TextChoices):
@@ -29,7 +30,7 @@ class FundingProposal(models.Model):
     title = models.CharField(max_length=300)
     description = models.TextField()
     total_amount = models.PositiveBigIntegerField(help_text="Amount in minor currency units")
-    currency = models.CharField(max_length=3, default="ILS")
+    currency = models.CharField(max_length=3, choices=Currency.choices, default=Currency.ILS)
     status = models.CharField(
         max_length=20,
         choices=FundingProposalStatus.choices,
@@ -57,7 +58,7 @@ class FundingBudget(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     proposal = models.OneToOneField(FundingProposal, on_delete=models.PROTECT, related_name="budget")
     total_amount = models.PositiveBigIntegerField()
-    currency = models.CharField(max_length=3)
+    currency = models.CharField(max_length=3, choices=Currency.choices)
     reserved_amount = models.PositiveBigIntegerField(default=0)
     allocated_amount = models.PositiveBigIntegerField(default=0)
     spent_amount = models.PositiveBigIntegerField(default=0)
@@ -79,7 +80,7 @@ class FundingAllocation(models.Model):
         related_name="funding_allocation",
     )
     amount = models.PositiveBigIntegerField()
-    currency = models.CharField(max_length=3)
+    currency = models.CharField(max_length=3, choices=Currency.choices)
     status = models.CharField(
         max_length=20,
         choices=FundingAllocationStatus.choices,

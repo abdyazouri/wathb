@@ -523,7 +523,7 @@ class BusinessCompleteAssignmentView(APIView):
                 declared_by=request.user,
                 declared_amount=snapshot.get("wage_amount", obligation.amount),
                 currency=snapshot.get("wage_currency", obligation.currency),
-                payment_method=snapshot.get("payment_method", "CASH"),
+                payment_method=snapshot.get("payment_method", assignment.job.payment_method),
                 payment_date=assignment.job.work_date,
             )
             obligation.status = WageObligationStatus.AWAITING_ACK

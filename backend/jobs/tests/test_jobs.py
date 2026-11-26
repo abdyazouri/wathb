@@ -47,7 +47,7 @@ def make_job(business_profile, **kwargs):
         wage_amount=10000,
         wage_currency="ILS",
         wage_basis="PER_DAY",
-        payment_method="CASH",
+        payment_method="JAWWAL_PAY",
         payment_deadline_days=3,
         status=JobListingStatus.DRAFT,
         is_funded=False,
@@ -315,7 +315,7 @@ class ApplicationAssignmentIdTests(APITestCase):
             work_date=datetime.date.today() + datetime.timedelta(days=1),
             start_time="08:00", end_time="17:00", num_workers_needed=1,
             wage_amount=5000, wage_currency="ILS", wage_basis="PER_DAY",
-            payment_method="CASH", payment_deadline_days=3,
+            payment_method="JAWWAL_PAY", payment_deadline_days=3,
             status=JobListingStatus.PUBLISHED,
         )
         self.app = JobApplication.objects.create(
@@ -461,3 +461,71 @@ class BusinessTrackRecordTests(APITestCase):
         track = response.data["business_track_record"]
         self.assertEqual(track["total_paid_days"], 1)
         self.assertIn("دفعت", track["label"])
+
+
+class JobCreateCurrencyAndPaymentMethodTests(APITestCase):
+    """Owner decisions: ILS only; payment methods JAWWAL_PAY / PALPAY / BANK_OF_PALESTINE only."""
+
+    def setUp(self):
+        self.biz_user, self.biz_profile = make_business("+970599017001")
+        self.client.force_authenticate(user=self.biz_user)
+
+    def _body(self, **overrides):
+        body = {
+            "title": "Day Laborer",
+            "description": "Help needed",
+            "location_address": "123 St",
+            "location_city": "Gaza City",
+            "work_date": str(datetime.date.today() + datetime.timedelta(days=1)),
+            "start_time": "08:00",
+            "end_time": "17:00",
+            "num_workers_needed": 1,
+            "wage_amount": 10000,
+            "wage_currency": "ILS",
+            "wage_basis": "PER_DAY",
+            "payment_method": "JAWWAL_PAY",
+        }
+        body.update(overrides)
+        return body
+
+    def test_each_allowed_payment_method_accepted(self):
+        for method in ("JAWWAL_PAY", "PALPAY", "BANK_OF_PALESTINE"):
+            response = self.client.post(reverse("job-list"), self._body(payment_method=method))
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED, msg=f"method={method}")
+            self.assertEqual(response.data["payment_method"], method)
+            self.assertEqual(response.data["wage_currency"], "ILS")
+
+    def test_removed_payment_methods_rejected(self):
+        for method in ("CASH", "OTHER", "BANK_TRANSFER"):
+            response = self.client.post(reverse("job-list"), self._body(payment_method=method))
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"method={method}")
+            self.assertIn("payment_method", response.data["fields"])
+        self.assertFalse(JobListing.objects.filter(business=self.biz_profile).exists())
+
+    def test_payment_method_is_required(self):
+        body = self._body()
+        del body["payment_method"]
+        response = self.client.post(reverse("job-list"), body)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("payment_method", response.data["fields"])
+
+    def test_non_ils_currency_rejected(self):
+        for currency in ("USD", "EUR", "JOD"):
+            response = self.client.post(reverse("job-list"), self._body(wage_currency=currency))
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"currency={currency}")
+            self.assertIn("wage_currency", response.data["fields"])
+        self.assertFalse(JobListing.objects.filter(business=self.biz_profile).exists())
+
+    def test_update_cannot_switch_to_cash_or_usd(self):
+        job = make_job(self.biz_profile)
+        response = self.client.patch(
+            reverse("job-detail", args=[job.pk]), {"payment_method": "CASH"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = self.client.patch(
+            reverse("job-detail", args=[job.pk]), {"wage_currency": "USD"}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        job.refresh_from_db()
+        self.assertEqual(job.payment_method, "JAWWAL_PAY")
+        self.assertEqual(job.wage_currency, "ILS")

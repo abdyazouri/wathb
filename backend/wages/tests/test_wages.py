@@ -46,7 +46,7 @@ def make_job_and_assignment(biz_profile, worker_user, wage_amount=10000):
         wage_amount=wage_amount,
         wage_currency="ILS",
         wage_basis="PER_DAY",
-        payment_method="CASH",
+        payment_method="JAWWAL_PAY",
         payment_deadline_days=3,
         status=JobListingStatus.PUBLISHED,
     )
@@ -77,7 +77,7 @@ def make_declaration(obligation, declared_by, decl_status=PaymentDeclarationStat
         declared_amount=obligation.amount,
         currency=obligation.currency,
         payment_date=datetime.date.today(),
-        payment_method="CASH",
+        payment_method="JAWWAL_PAY",
         declared_by=declared_by,
         status=decl_status,
     )
@@ -116,7 +116,7 @@ class PaymentDeclarationTests(APITestCase):
             "declared_amount": 10000,
             "currency": "ILS",
             "payment_date": str(datetime.date.today()),
-            "payment_method": "CASH",
+            "payment_method": "JAWWAL_PAY",
         }
 
     def test_business_can_declare_payment(self):
@@ -157,7 +157,7 @@ class PaymentDeclarationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_invalid_payment_method_returns_400(self):
-        """payment_method must be one of CASH / BANK_TRANSFER / OTHER."""
+        """payment_method must be one of JAWWAL_PAY / PALPAY / BANK_OF_PALESTINE."""
         self.client.force_authenticate(user=self.biz_user)
         body = self._decl_body()
         body["payment_method"] = "BITCOIN"
@@ -167,13 +167,43 @@ class PaymentDeclarationTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_removed_payment_methods_rejected(self):
+        """Owner decision: no cash. CASH, OTHER and the old BANK_TRANSFER are rejected."""
+        self.client.force_authenticate(user=self.biz_user)
+        for method in ("CASH", "OTHER", "BANK_TRANSFER"):
+            body = self._decl_body()
+            body["payment_method"] = method
+            response = self.client.post(
+                reverse("wage-declare-payment", args=[self.obligation.pk]),
+                body,
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"method={method}")
+            self.assertIn("payment_method", response.data["fields"])
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.PENDING)
+
+    def test_non_ils_currency_rejected(self):
+        self.client.force_authenticate(user=self.biz_user)
+        for currency in ("USD", "EUR", "JOD"):
+            body = self._decl_body()
+            body["currency"] = currency
+            response = self.client.post(
+                reverse("wage-declare-payment", args=[self.obligation.pk]),
+                body,
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, msg=f"currency={currency}")
+            self.assertIn("currency", response.data["fields"])
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.obligation.status, WageObligationStatus.PENDING)
+
     def test_all_valid_payment_methods_accepted(self):
-        for method in ("CASH", "BANK_TRANSFER", "OTHER"):
+        methods = ("JAWWAL_PAY", "PALPAY", "BANK_OF_PALESTINE")
+        for i, method in enumerate(methods):
             # Re-create an obligation for each variant (tearDown not available here,
             # so we just chain a new obligation on a new assignment).
             _, assign = make_job_and_assignment(
                 self.biz_profile, self.worker,
-                wage_amount=5000 + list(("CASH", "BANK_TRANSFER", "OTHER")).index(method)
+                wage_amount=5000 + i
             )
             obl = make_obligation(assign)
             self.client.force_authenticate(user=self.biz_user)
