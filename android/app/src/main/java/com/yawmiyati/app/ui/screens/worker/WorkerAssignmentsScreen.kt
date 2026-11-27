@@ -385,7 +385,17 @@ internal fun AssignmentCard(
                 }
                 "COMPLETED" -> {
                     val obligationId = assignment.wageObligationId
-                    if (obligationId != null && snap != null) {
+                    // «تأكيد الاستلام» only while the wage awaits the worker (older servers send no status).
+                    val awaitingWorker = assignment.wageStatus?.let { it == "AWAITING_ACK" } ?: true
+                    if (obligationId != null && !awaitingWorker) {
+                        Text(
+                            text = "الأجر: ${StatusLabels.wageForWorker(assignment.wageStatus)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (assignment.wageStatus == "VERIFIED_PAID") MaterialTheme.colorScheme.tertiary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(onClick = onManage, modifier = Modifier.fillMaxWidth()) { Text("فتح المهمة") }
+                    } else if (obligationId != null && snap != null) {
                         val snapAmount = (snap["wage_amount"] as? Number)?.toLong()
                         val snapCurrency = snap["wage_currency"] as? String ?: "ILS"
                         val snapBasis = snap["wage_basis"] as? String ?: ""
