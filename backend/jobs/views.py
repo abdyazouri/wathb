@@ -344,9 +344,12 @@ class ApplicationActionView(APIView):
             elif action_name == "reject":
                 if app.status not in (ApplicationStatus.PENDING, ApplicationStatus.OFFERED):
                     return Response({"detail": "لا يمكن الرفض في هذه المرحلة."}, status=status.HTTP_400_BAD_REQUEST)
-                app.status = ApplicationStatus.REJECTED
-                app.reviewed_at = timezone.now()
-                app.save(update_fields=["status", "reviewed_at"])
+                with transaction.atomic():
+                    app.status = ApplicationStatus.REJECTED
+                    app.reviewed_at = timezone.now()
+                    app.save(update_fields=["status", "reviewed_at"])
+                    # «سحب العرض»: the offer must not stay acceptable.
+                    _close_open_offer(app, "CANCELLED", "سحب صاحب العمل العرض.")
                 _notify_worker(app.worker, "APPLICATION_REJECTED", job)
             else:
                 return Response({"detail": "الإجراء غير صالح. الخيارات: offer أو reject."}, status=status.HTTP_400_BAD_REQUEST)
@@ -363,8 +366,10 @@ class ApplicationActionView(APIView):
             if action_name == "withdraw":
                 if app.status not in (ApplicationStatus.PENDING, ApplicationStatus.OFFERED):
                     return Response({"detail": "لا يمكن سحب الطلب في هذه المرحلة."}, status=status.HTTP_400_BAD_REQUEST)
-                app.status = ApplicationStatus.WITHDRAWN
-                app.save(update_fields=["status"])
+                with transaction.atomic():
+                    app.status = ApplicationStatus.WITHDRAWN
+                    app.save(update_fields=["status"])
+                    _close_open_offer(app, "DECLINED")
                 return Response(JobApplicationSerializer(app).data)
             else:
                 return Response({"detail": "يمكن للعامل سحب طلبه فقط."}, status=status.HTTP_400_BAD_REQUEST)
@@ -381,6 +386,15 @@ class ApplicationActionView(APIView):
             return Response({"detail": "لا يمكن الحذف في هذه المرحلة."}, status=status.HTTP_400_BAD_REQUEST)
         app.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _close_open_offer(app, new_status, reason=""):
+    """An offer still waiting for the worker ends with its application (rejected or withdrawn)."""
+    from assignments.models import Assignment, AssignmentStatus
+    fields = {"status": getattr(AssignmentStatus, new_status)}
+    if new_status == "CANCELLED":
+        fields.update(cancelled_at=timezone.now(), cancellation_reason=reason)
+    Assignment.objects.filter(job=app.job, worker=app.worker, status=AssignmentStatus.OFFERED).update(**fields)
 
 
 def _notify_worker(worker, notification_type, job):

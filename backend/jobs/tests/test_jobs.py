@@ -287,6 +287,50 @@ class ApplicationOfferTests(APITestCase):
         self.app.refresh_from_db()
         self.assertEqual(self.app.status, ApplicationStatus.WITHDRAWN)
 
+    def test_withdrawing_an_offer_cancels_the_assignment(self):
+        """«سحب العرض»: the worker can no longer accept it."""
+        self.client.force_authenticate(user=self.biz_user)
+        self.client.patch(self._offer_url(), {"action": "offer"})
+        self.client.patch(self._offer_url(), {"action": "reject"})
+        assignment = Assignment.objects.get(job=self.job, worker=self.worker)
+        self.assertEqual(assignment.status, AssignmentStatus.CANCELLED)
+        self.assertIsNotNone(assignment.cancelled_at)
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.post(reverse("assignment-accept", args=[assignment.pk]))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.status, JobListingStatus.PUBLISHED)
+
+    def test_worker_withdrawing_an_offered_application_declines_the_offer(self):
+        self.client.force_authenticate(user=self.biz_user)
+        self.client.patch(self._offer_url(), {"action": "offer"})
+        self.client.force_authenticate(user=self.worker)
+        self.client.patch(self._offer_url(), {"action": "withdraw"})
+        assignment = Assignment.objects.get(job=self.job, worker=self.worker)
+        self.assertEqual(assignment.status, AssignmentStatus.DECLINED)
+
+    def test_stale_offer_with_rejected_application_cannot_be_accepted(self):
+        """Rows left OFFERED before the fix are refused at accept."""
+        self.client.force_authenticate(user=self.biz_user)
+        self.client.patch(self._offer_url(), {"action": "offer"})
+        self.app.status = ApplicationStatus.REJECTED
+        self.app.save(update_fields=["status"])
+        assignment = Assignment.objects.get(job=self.job, worker=self.worker)
+        self.assertEqual(assignment.status, AssignmentStatus.OFFERED)
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.post(reverse("assignment-accept", args=[assignment.pk]))
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.app.refresh_from_db()
+        self.assertEqual(self.app.status, ApplicationStatus.REJECTED)
+
+    def test_offer_then_accept_still_works(self):
+        self.client.force_authenticate(user=self.biz_user)
+        self.client.patch(self._offer_url(), {"action": "offer"})
+        assignment = Assignment.objects.get(job=self.job, worker=self.worker)
+        self.client.force_authenticate(user=self.worker)
+        response = self.client.post(reverse("assignment-accept", args=[assignment.pk]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_worker_cannot_use_offer_action(self):
         self.client.force_authenticate(user=self.worker)
         response = self.client.patch(self._offer_url(), {"action": "offer"})

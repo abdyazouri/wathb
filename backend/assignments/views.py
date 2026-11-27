@@ -73,6 +73,9 @@ class AssignmentAcceptView(APIView):
                 {"detail": f"لا يمكن قبول مهمة حالتها «{assignment.get_status_display()}»."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # An offer whose application was rejected or withdrawn (rows from before the fix).
+        if assignment.application_id and assignment.application.status != ApplicationStatus.OFFERED:
+            return Response({"detail": "سُحب هذا العرض ولم يعد متاحًا."}, status=status.HTTP_400_BAD_REQUEST)
 
         snapshot = assignment.job.material_terms_snapshot()
         assignment.terms_snapshot = snapshot
