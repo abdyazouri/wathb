@@ -134,7 +134,7 @@ class WorkerAssignmentDetailViewModel(
                 is AssignmentResult.Success ->
                     _completionState.value = WorkerCompletionUiState.Submitted(r.data)
                 is AssignmentResult.Error ->
-                    _completionState.value = if (r.message.contains("لا يوجد سجل"))
+                    _completionState.value = if (r.notFound)
                         WorkerCompletionUiState.NotSubmitted
                     else WorkerCompletionUiState.Error(r.message)
             }

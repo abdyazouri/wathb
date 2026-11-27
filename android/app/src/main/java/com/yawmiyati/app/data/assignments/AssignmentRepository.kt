@@ -10,7 +10,8 @@ import com.yawmiyati.app.data.api.CompletionSubmitRequest
 
 sealed class AssignmentResult<out T> {
     data class Success<T>(val data: T) : AssignmentResult<T>()
-    data class Error(val message: String, val isAuth: Boolean = false) : AssignmentResult<Nothing>()
+    /** [notFound]: the server answered 404 (e.g. no completion recorded yet). */
+    data class Error(val message: String, val isAuth: Boolean = false, val notFound: Boolean = false) : AssignmentResult<Nothing>()
 }
 
 open class AssignmentRepository {
@@ -111,7 +112,7 @@ open class AssignmentRepository {
         return try {
             val response = api.getCompletion(assignmentId)
             if (response.isSuccessful) AssignmentResult.Success(response.body()!!)
-            else if (response.code() == 404) AssignmentResult.Error("لا يوجد سجل إتمام بعد", false)
+            else if (response.code() == 404) AssignmentResult.Error("لا يوجد سجل إتمام بعد", notFound = true)
             else AssignmentResult.Error(parseError(response.errorBody()?.string()), response.code() == 401)
         } catch (e: Exception) { AssignmentResult.Error(networkMessage(e)) }
     }

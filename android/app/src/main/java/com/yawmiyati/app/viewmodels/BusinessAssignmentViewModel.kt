@@ -69,7 +69,7 @@ class BusinessAssignmentViewModel(
             _completionState.value = when (val r = repository.getCompletion(assignmentId)) {
                 is AssignmentResult.Success -> CompletionUiState.Submitted(r.data)
                 is AssignmentResult.Error ->
-                    if (r.message.contains("لا يوجد")) CompletionUiState.NotSubmitted
+                    if (r.notFound) CompletionUiState.NotSubmitted
                     else CompletionUiState.Error(r.message)
             }
         }
