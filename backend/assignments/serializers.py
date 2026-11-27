@@ -10,6 +10,8 @@ class AssignmentSerializer(serializers.ModelSerializer):
     # Normalized E.164 phone of the business user — ready for tel: and wa.me links.
     business_phone = serializers.CharField(source="job.business.user.phone", read_only=True)
     wage_obligation_id = serializers.SerializerMethodField()
+    # The wage's status, so a task card shows «تأكيد الاستلام» only while the wage awaits the worker.
+    wage_status = serializers.SerializerMethodField()
     changed_terms = serializers.SerializerMethodField()
     completion_status = serializers.SerializerMethodField()
     completion_requested_by_worker = serializers.SerializerMethodField()
@@ -44,6 +46,12 @@ class AssignmentSerializer(serializers.ModelSerializer):
         except Exception:
             return None
 
+    def get_wage_status(self, obj):
+        try:
+            return obj.wage_obligation.status
+        except Exception:
+            return None
+
     # Live job terms — shown on OFFERED cards so the worker can review before accepting.
     job_work_date = serializers.DateField(source="job.work_date", read_only=True)
     job_start_time = serializers.TimeField(source="job.start_time", read_only=True)
@@ -65,7 +73,7 @@ class AssignmentSerializer(serializers.ModelSerializer):
         model = Assignment
         fields = [
             "id", "job", "job_title", "worker_phone", "worker_name", "business_name", "business_phone",
-            "wage_obligation_id", "changed_terms", "completion_status", "completion_requested_by_worker",
+            "wage_obligation_id", "wage_status", "changed_terms", "completion_status", "completion_requested_by_worker",
             "job_work_date", "job_start_time", "job_end_time",
             "job_location_city", "job_location_address",
             "job_wage_amount", "job_wage_currency", "job_wage_basis",

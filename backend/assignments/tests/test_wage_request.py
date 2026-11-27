@@ -109,6 +109,7 @@ class ConfirmAndPayTests(WageRequestTestBase):
         self.assertEqual((wage.amount, wage.status), (9000, WageObligationStatus.DUE))
         self.assertEqual(wage.due_date, timezone.localdate())
         self.assertEqual(r.data["wage_obligation_id"], str(wage.pk))
+        self.assertEqual(r.data["wage_status"], WageObligationStatus.DUE)
         self.assertFalse(PaymentDeclaration.objects.filter(wage_obligation=wage).exists())
         actions = set(AuditEvent.objects.values_list("action", flat=True))
         self.assertTrue({"completion_submitted", "completion_confirmed", "wage_created"} <= actions)
