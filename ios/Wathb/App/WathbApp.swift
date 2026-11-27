@@ -26,6 +26,7 @@ struct RootView: View {
             case .home(let role):
                 switch role {
                 case "WORKER": WorkerTabView()
+                case "ADMIN": AdminTabView()
                 default: OtherRoleView(role: role)
                 }
             }

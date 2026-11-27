@@ -162,6 +162,10 @@ struct WageObligation: Decodable, Identifiable, Hashable {
     let id: String
     let assignment: String
     let jobTitle: String
+    let workerPhone: String?
+    let workerName: String?
+    let businessName: String?
+    let businessPhone: String?
     let amount: Int
     let currency: String
     let amountDisplay: String
@@ -188,6 +192,72 @@ struct DisputePaymentRequest: Encodable {
     let category = "PAYMENT_NOT_RECEIVED"
     let description: String
 }
+
+// MARK: - Admin
+
+struct AdminBusiness: Decodable, Identifiable, Hashable {
+    let id: Int
+    let legalName: String
+    let tradeName: String?
+    let registrationNumber: String?
+    let email: String?
+    let locationAddress: String?
+    let locationCity: String?
+    let contactName: String
+    let contactPhone: String
+    let verificationStatus: String
+    let verifiedAt: String?
+    let suspensionReason: String?
+}
+
+/// action: approve / reject / suspend; reason required for the last two.
+struct AdminVerifyRequest: Encodable { let action: String; let reason: String }
+
+struct AdminWorker: Decodable, Identifiable, Hashable {
+    let id: Int
+    let phone: String
+    let fullName: String
+    let isVerified: Bool
+    let locationCity: String?
+}
+
+struct PilotSummary: Decodable {
+    let verifiedBusinesses: Int
+    let verifiedWorkers: Int
+    let publishedJobs: Int
+    let applications: Int
+    let acceptedAssignments: Int
+    let completedWorkerDays: Int
+    let wageObligationsCreated: Int
+    let paymentsDeclared: Int
+    let paymentsVerifiedPaid: Int
+    let totalVerifiedPaidMinorUnits: Int
+    let disputesOpened: Int
+    let disputesResolved: Int
+}
+
+struct Dispute: Decodable, Identifiable, Hashable {
+    let id: String
+    let category: String
+    let wageObligation: String?
+    let wageObligationStatus: String?
+    let disputedDeclaration: String?
+    let raisedByPhone: String
+    let description: String
+    let status: String
+    let createdAt: String
+    let resolutionNotes: String?
+
+    /// A dispute on a wage the admin can still settle with «الدفع تم» / «الدفع لم يتم».
+    var canSettleWage: Bool {
+        ["OPEN", "IN_REVIEW"].contains(status) && wageObligation != nil &&
+            wageObligationStatus == "DISPUTED" && disputedDeclaration != nil
+    }
+}
+
+struct ResolutionNotes: Encodable { let resolutionNotes: String }
+struct VerifyDeclarationRequest: Encodable { let action: String; let reviewNotes: String }
+struct PhoneResolveRequest: Encodable { let action: String; let notes: String }
 
 // MARK: - Notifications
 

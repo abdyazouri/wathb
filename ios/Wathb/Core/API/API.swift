@@ -2,7 +2,7 @@ import Foundation
 
 /// The endpoints the iPhone app uses (paths as in android/data/api/*Api.kt).
 enum API {
-    private static var c: APIClient { .shared }
+    fileprivate static var c: APIClient { .shared }
 
     // MARK: Auth
 
@@ -152,4 +152,61 @@ enum API {
 
     static func markRead(_ id: String) async throws -> AppNotification { try await c.patch("notifications/\(id)/read/") }
     static func markAllRead() async throws { try await c.postIgnoringResult("notifications/read-all/", NoBody()) }
+}
+
+// MARK: - Admin
+
+extension API {
+
+    static func pilotSummary() async throws -> PilotSummary { try await c.get("admin/reports/pilot-summary/") }
+
+    static func adminBusinesses(status: String?) async throws -> [AdminBusiness] {
+        let page: Page<AdminBusiness> = try await c.get("admin/businesses/",
+                                                       query: status.map { ["verification_status": $0] } ?? [:])
+        return page.results
+    }
+
+    static func verifyBusiness(_ id: Int, action: String, reason: String) async throws -> AdminBusiness {
+        try await c.patch("admin/businesses/\(id)/verify/", AdminVerifyRequest(action: action, reason: reason))
+    }
+
+    static func adminWorkers(verified: Bool?, search: String) async throws -> [AdminWorker] {
+        var query: [String: String] = [:]
+        if let verified { query["is_verified"] = verified ? "true" : "false" }
+        if !search.isBlank { query["search"] = search.trimmed }
+        let page: Page<AdminWorker> = try await c.get("admin/workers/", query: query)
+        return page.results
+    }
+
+    /// action: verify / suspend
+    static func verifyWorker(_ id: Int, action: String) async throws -> AdminWorker {
+        try await c.patch("admin/workers/\(id)/verify/", ["action": action])
+    }
+
+    static func wageDisputes() async throws -> [Dispute] {
+        let page: Page<Dispute> = try await c.get("disputes/", query: ["category": "WAGE_DISPUTED"])
+        return page.results
+    }
+
+    static func resolveDispute(_ id: String, notes: String) async throws -> Dispute {
+        try await c.post("admin/disputes/\(id)/resolve/", ResolutionNotes(resolutionNotes: notes))
+    }
+
+    /// «الدفع تم» (verify) / «الدفع لم يتم» (reject); the server also resolves the dispute.
+    static func settleWage(_ dispute: Dispute, action: String, notes: String) async throws {
+        guard let wage = dispute.wageObligation, let declaration = dispute.disputedDeclaration else { return }
+        try await c.postIgnoringResult("wages/\(wage)/declarations/\(declaration)/verify/",
+                                       VerifyDeclarationRequest(action: action, reviewNotes: notes))
+    }
+
+    /// Wages awaiting the worker's acknowledgement for days: the admin calls the worker.
+    static func staleWages() async throws -> [WageObligation] { try await c.get("admin/disputes/stale-wages/") }
+
+    /// Wages due 3+ days with no payment declared: the admin calls the business.
+    static func unpaidWages() async throws -> [WageObligation] { try await c.get("admin/disputes/unpaid-wages/") }
+
+    /// action: confirmed_by_phone / disputed_by_phone
+    static func phoneResolveWage(_ id: String, action: String, notes: String) async throws -> WageObligation {
+        try await c.patch("wages/\(id)/admin-phone-resolve/", PhoneResolveRequest(action: action, notes: notes))
+    }
 }
