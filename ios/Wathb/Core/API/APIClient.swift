@@ -4,7 +4,15 @@ import Foundation
 struct APIError: Error, LocalizedError {
     let message: String
     var status: Int? = nil
+    /// The raw error body, for screens that read extra keys (e.g. «تحويل الأجر»).
+    var body: Data? = nil
     var errorDescription: String? { message }
+
+    /// A key of the JSON error body (`failure`, `retry_after`, `needs_wallet`, …).
+    func field(_ key: String) -> Any? {
+        guard let body, let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else { return nil }
+        return json[key].flatMap { $0 is NSNull ? nil : $0 }
+    }
 
     static let noConnection = APIError(message: "تعذّر الاتصال بالخادم. تحقّق من الإنترنت ثم حاول مرة أخرى.")
 }
@@ -98,7 +106,7 @@ actor APIClient {
             throw APIError(message: "انتهت الجلسة، سجّل الدخول من جديد.", status: 401)
         }
         guard (200..<300).contains(code) else {
-            throw APIError(message: Self.message(from: data), status: code)
+            throw APIError(message: Self.message(from: data), status: code, body: data)
         }
         return data
     }

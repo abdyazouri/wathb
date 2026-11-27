@@ -4,6 +4,7 @@ struct NotificationsView: View {
     @State private var items: [AppNotification]?
     @State private var error: String?
     @State private var openJob: String?
+    @State private var openApplicants: Job?
 
     var body: some View {
         ScrollView {
@@ -39,6 +40,7 @@ struct NotificationsView: View {
             }
         }
         .navigationDestination(item: $openJob) { JobDetailView(jobId: $0) }
+        .navigationDestination(item: $openApplicants) { ApplicantsView(job: $0) }
     }
 
     private func row(_ n: AppNotification) -> some View {
@@ -66,11 +68,17 @@ struct NotificationsView: View {
         if !n.isRead {
             Task { _ = try? await API.markRead(n.id); await load() }
         }
-        if n.relatedModel == "JobListing", let id = n.relatedId, !id.isEmpty { openJob = id }
+        guard n.relatedModel == "JobListing", let id = n.relatedId, !id.isEmpty else { return }
+        if TokenStore.role == "BUSINESS" {
+            // A business opens the job's applicants (the job page is the worker's view).
+            Task { if let job = try? await API.job(id) { openApplicants = job } }
+        } else {
+            openJob = id
+        }
     }
 }
 
-/// Business and admin screens come in the next phase; until then the account can sign out here.
+/// A role this version does not know (the session is kept; the account can sign out here).
 struct OtherRoleView: View {
     let role: String
     @State private var deleting = false
@@ -80,8 +88,7 @@ struct OtherRoleView: View {
         VStack(spacing: 20) {
             Spacer()
             Text("وَثْب").font(.wathb(44, .black)).foregroundStyle(Brand.primary)
-            Text(role == "BUSINESS" ? "واجهة المنشآت على الآيفون قادمة قريبًا. استخدم تطبيق أندرويد حتى ذلك الحين."
-                                    : "واجهة المشرف على الآيفون قادمة قريبًا. استخدم تطبيق أندرويد حتى ذلك الحين.")
+            Text("هذا الحساب غير مدعوم في هذه النسخة. حدّث التطبيق أو تواصل مع الدعم.")
                 .font(.wathb(17)).multilineTextAlignment(.center)
             Spacer()
             AccountSection(deleting: $deleting, toast: $toast)

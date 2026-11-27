@@ -58,6 +58,8 @@ struct Job: Decodable, Identifiable, Hashable {
     let wageAmount: Int
     let wageCurrency: String
     let wageBasis: String
+    /// "250 ILS / يوم" as the server formats it.
+    let wageDisplay: String?
     let attendanceRequirements: String
     let isNew: Bool?
     let status: String
@@ -77,6 +79,10 @@ struct JobApplication: Decodable, Identifiable, Hashable {
     let id: String
     let job: String
     let jobTitle: String
+    /// Set when the business lists a job's applicants.
+    let workerName: String?
+    let workerPhone: String?
+    let workerIsVerified: Bool?
     let status: String
     let coverNote: String
     let appliedAt: String
@@ -192,6 +198,77 @@ struct DisputePaymentRequest: Encodable {
     let category = "PAYMENT_NOT_RECEIVED"
     let description: String
 }
+
+// MARK: - Business
+
+struct JobCreateRequest: Encodable {
+    let title: String
+    let description: String
+    let locationAddress: String
+    let locationCity: String
+    let workDate: String      // YYYY-MM-DD
+    let startTime: String     // HH:MM
+    let endTime: String       // HH:MM
+    let numWorkersNeeded: Int
+    let wageAmount: Int       // agorot
+    let wageCurrency = "ILS"
+    let wageBasis: String
+}
+
+struct BusinessProfile: Decodable {
+    let phone: String
+    let email: String?
+    let legalName: String
+    let tradeName: String
+    let locationAddress: String
+    let locationCity: String
+    let contactName: String
+    let contactPhone: String
+    let verificationStatus: String
+    /// E.164; nil or blank when not linked.
+    let jawwalPayWallet: String?
+}
+
+struct BusinessProfileUpdate: Encodable {
+    let legalName: String
+    let tradeName: String
+    let locationAddress: String
+    let locationCity: String
+    let contactName: String
+    let contactPhone: String
+    let jawwalPayWallet: String
+}
+
+/// «لم يتم العمل»: category WORKER_NO_SHOW or WORK_INCOMPLETE is required by the server.
+struct CompletionDisputeRequest: Encodable { let category: String; let description: String }
+
+/// GET wages/{id}/payment/ — read-only; every value comes from the server.
+struct PaymentInfo: Decodable {
+    let wageId: String
+    let mode: String              // automatic | manual
+    let status: String
+    let payable: Bool
+    let amount: Int               // agorot
+    let amountDisplay: String
+    let jobTitle: String
+    let workerName: String
+    let workerWallet: String
+    let businessWallet: String?
+    let needsWallet: Bool
+    let attempt: PaymentAttempt?
+}
+
+struct PaymentAttempt: Decodable {
+    let status: String            // INITIATED | SUCCEEDED | FAILED | UNKNOWN
+    let failure: String?
+    let resendAvailableAt: String?
+}
+
+/// The SMS code, sent once and never kept.
+struct PaymentCodeRequest: Encodable { let code: String }
+
+/// Manual mode «حوّلت الأجر». Amount, currency and method are set by the server.
+struct DeclarePaymentRequest: Encodable { let transactionReference: String }
 
 // MARK: - Admin
 

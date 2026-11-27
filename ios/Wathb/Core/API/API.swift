@@ -210,3 +210,70 @@ extension API {
         try await c.patch("wages/\(id)/admin-phone-resolve/", PhoneResolveRequest(action: action, notes: notes))
     }
 }
+
+// MARK: - Business
+
+extension API {
+    /// A business sees its own jobs (every status).
+    static func myJobs(page: Int) async throws -> Page<Job> {
+        try await c.get("jobs/", query: ["page": String(page)])
+    }
+
+    /// A new job is a draft on the server; this submits and publishes it.
+    static func publish(_ jobId: String) async throws -> Job {
+        let _: Job = try await c.post("jobs/\(jobId)/submit/")
+        return try await c.post("jobs/\(jobId)/publish/")
+    }
+
+    static func cancelJob(_ jobId: String, reason: String) async throws -> Job {
+        try await c.post("jobs/\(jobId)/cancel/", CancelRequest(reason: reason))
+    }
+
+    /// A new draft with the same terms.
+    static func cloneJob(_ jobId: String) async throws -> Job { try await c.post("jobs/\(jobId)/clone/") }
+
+    static func applicants(jobId: String) async throws -> [JobApplication] {
+        let page: Page<JobApplication> = try await c.get("jobs/\(jobId)/applications/")
+        return page.results
+    }
+
+    /// action: offer / reject
+    static func applicationAction(jobId: String, applicationId: String, action: String) async throws -> JobApplication {
+        try await c.patch("jobs/\(jobId)/applications/\(applicationId)/", ApplicationActionRequest(action: action))
+    }
+
+    /// Confirms the work; the wage becomes due and the app opens «تحويل الأجر».
+    static func businessComplete(_ id: String) async throws -> Assignment {
+        try await c.post("assignments/\(id)/business-complete/")
+    }
+
+    /// «لم يتم العمل»: opens a dispute for the admin.
+    static func reportNotDone(_ id: String, category: String, notes: String) async throws -> Completion {
+        try await c.patch("assignments/\(id)/completion/dispute/", CompletionDisputeRequest(category: category, description: notes))
+    }
+
+    static func businessProfile() async throws -> BusinessProfile { try await c.get("businesses/profile/") }
+
+    static func updateBusinessProfile(_ u: BusinessProfileUpdate) async throws -> BusinessProfile {
+        try await c.patch("businesses/profile/", u)
+    }
+
+    // «تحويل الأجر»
+
+    static func payment(_ wageId: String) async throws -> PaymentInfo { try await c.get("wages/\(wageId)/payment/") }
+
+    /// Jawwal Pay sends the business an SMS code.
+    static func initiatePayment(_ wageId: String) async throws -> PaymentInfo {
+        try await c.post("wages/\(wageId)/payment/initiate/")
+    }
+
+    /// Relays the code once.
+    static func confirmPayment(_ wageId: String, code: String) async throws -> PaymentInfo {
+        try await c.post("wages/\(wageId)/payment/confirm/", PaymentCodeRequest(code: code))
+    }
+
+    /// Manual mode «حوّلت الأجر».
+    static func declarePayment(_ wageId: String, reference: String) async throws {
+        try await c.postIgnoringResult("wages/\(wageId)/declare-payment/", DeclarePaymentRequest(transactionReference: reference))
+    }
+}
