@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,24 +10,30 @@ android {
     namespace = "com.yawmiyati.app"
     compileSdk = 36
 
-    // Release signing: set all four in ~/.gradle/gradle.properties.
-    // Debug builds work without them. assembleRelease produces an unsigned APK
-    // when any are absent; sign it manually or add the properties first.
-    val releaseStoreFile     = findProperty("WATHB_STORE_FILE")     as String?
-    val releaseStorePassword = findProperty("WATHB_STORE_PASSWORD") as String?
-    val releaseKeyAlias      = findProperty("WATHB_KEY_ALIAS")      as String?
-    val releaseKeyPassword   = findProperty("WATHB_KEY_PASSWORD")   as String?
-    val hasReleaseKey = listOf(
-        releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword
-    ).all { it != null }
+    // Release signing: android/keystore.properties (gitignored; see docs/TRIAL_DISTRIBUTION.md) holds
+    // storeFile, storePassword, keyAlias and keyPassword. Debug builds work without it; a release build
+    // stops with a clear message when it is missing, so an unsigned APK is never produced by mistake.
+    val keystoreFile = rootProject.file("keystore.properties")
+    val keystore = Properties().apply {
+        if (keystoreFile.exists()) keystoreFile.inputStream().use { load(it) }
+    }
+    val signingKeys = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    val hasReleaseKey = signingKeys.all { !keystore.getProperty(it).isNullOrBlank() }
+    val buildsRelease = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+    if (buildsRelease && !hasReleaseKey) {
+        throw GradleException(
+            "Release signing is not set up: create android/keystore.properties with " +
+                signingKeys.joinToString(", ") + " (see docs/TRIAL_DISTRIBUTION.md)."
+        )
+    }
 
     if (hasReleaseKey) {
         signingConfigs {
             create("release") {
-                storeFile     = file(releaseStoreFile!!)
-                storePassword = releaseStorePassword
-                keyAlias      = releaseKeyAlias
-                keyPassword   = releaseKeyPassword
+                storeFile     = rootProject.file(keystore.getProperty("storeFile"))
+                storePassword = keystore.getProperty("storePassword")
+                keyAlias      = keystore.getProperty("keyAlias")
+                keyPassword   = keystore.getProperty("keyPassword")
             }
         }
     }
@@ -36,8 +44,9 @@ android {
         targetSdk = 36
         // RELEASE RULE: raise versionCode whenever backend accounts/consent.py
         // bumps CONSENT_VERSION — old clients must update before they can register.
-        versionCode = 2
-        versionName = "1.0.1"
+        // Every distributed build needs a higher versionCode (testers update over the old one).
+        versionCode = 3
+        versionName = "0.9.0-trial.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
