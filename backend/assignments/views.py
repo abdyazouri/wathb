@@ -142,17 +142,27 @@ class AssignmentCancelView(APIView):
         if assignment.status in (AssignmentStatus.COMPLETED, AssignmentStatus.CANCELLED):
             return Response({"detail": "لا يمكن إلغاء مهمة مكتملة أو ملغاة مسبقاً."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if timezone.now().date() >= assignment.job.work_date:
+        # An accepted task is locked from its work day (Gaza time); an offer nobody accepted
+        # can always be withdrawn.
+        if assignment.status != AssignmentStatus.OFFERED and timezone.localdate() >= assignment.job.work_date:
             return Response({"detail": "لا يمكن إلغاء المهمة بعد يوم العمل."}, status=status.HTTP_400_BAD_REQUEST)
 
         reason = request.data.get("reason", "").strip()
         if not reason:
             return Response({"detail": "يجب ذكر السبب."}, status=status.HTTP_400_BAD_REQUEST)
 
-        assignment.status = AssignmentStatus.CANCELLED
-        assignment.cancelled_at = timezone.now()
-        assignment.cancellation_reason = reason
-        assignment.save(update_fields=["status", "cancelled_at", "cancellation_reason"])
+        was_offer = assignment.status == AssignmentStatus.OFFERED
+        with transaction.atomic():
+            assignment.status = AssignmentStatus.CANCELLED
+            assignment.cancelled_at = timezone.now()
+            assignment.cancellation_reason = reason
+            assignment.save(update_fields=["status", "cancelled_at", "cancellation_reason"])
+            # Cancelling an offer ends its application too, as «سحب العرض» does.
+            application = assignment.application
+            if was_offer and application is not None and application.status == ApplicationStatus.OFFERED:
+                application.status = (ApplicationStatus.WITHDRAWN if user.role == Role.WORKER
+                                      else ApplicationStatus.REJECTED)
+                application.save(update_fields=["status"])
 
         if user.role == Role.BUSINESS:
             _notify(

@@ -161,6 +161,59 @@ class AssignmentCancelWorkerTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("بعد يوم العمل", resp.data["detail"])
 
+    def test_business_can_withdraw_an_offer_after_the_work_day(self):
+        """An offer nobody accepted is not locked by the work day."""
+        self.job.work_date = datetime.date.today() - datetime.timedelta(days=1)
+        self.job.save(update_fields=["work_date"])
+        self.assignment.status = AssignmentStatus.OFFERED
+        self.assignment.save(update_fields=["status"])
+        app = self.assignment.application
+        app.status = ApplicationStatus.OFFERED
+        app.save(update_fields=["status"])
+        resp = self._cancel_as(self.biz_user, reason="سُحب العرض")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK, resp.data)
+        self.assignment.refresh_from_db()
+        app.refresh_from_db()
+        self.assertEqual(self.assignment.status, AssignmentStatus.CANCELLED)
+        self.assertEqual(app.status, ApplicationStatus.REJECTED)
+
+    def test_business_cannot_cancel_an_accepted_task_on_the_work_day(self):
+        self.job.work_date = datetime.date.today()
+        self.job.save(update_fields=["work_date"])
+        resp = self._cancel_as(self.biz_user)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_business_can_still_cancel_assignment(self):
         resp = self._cancel_as(self.biz_user)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+
+class CloseWithdrawnOffersMigrationTests(APITestCase):
+    """assignments 0003: offers left OFFERED after «سحب العرض» are closed."""
+
+    def test_stale_offers_are_closed_and_live_ones_kept(self):
+        import importlib
+        from django.apps import apps as django_apps
+        migration = importlib.import_module("assignments.migrations.0003_close_withdrawn_offers")
+
+        _, bp = make_business("+970599090011")
+        job = make_job(bp, days_ahead=0)
+
+        def offer(phone, app_status):
+            worker = make_worker(phone)
+            app = JobApplication.objects.create(job=job, worker=worker, status=app_status)
+            return Assignment.objects.create(job=job, worker=worker, application=app, terms_snapshot={},
+                                             status=AssignmentStatus.OFFERED)
+
+        rejected = offer("+970599090012", ApplicationStatus.REJECTED)
+        withdrawn = offer("+970599090013", ApplicationStatus.WITHDRAWN)
+        live = offer("+970599090014", ApplicationStatus.OFFERED)
+
+        migration.close_withdrawn_offers(django_apps, None)
+
+        for a in (rejected, withdrawn, live):
+            a.refresh_from_db()
+        self.assertEqual(rejected.status, AssignmentStatus.CANCELLED)
+        self.assertEqual(rejected.cancellation_reason, migration.WITHDRAWN_OFFER_REASON)
+        self.assertEqual(withdrawn.status, AssignmentStatus.DECLINED)
+        self.assertEqual(live.status, AssignmentStatus.OFFERED)
