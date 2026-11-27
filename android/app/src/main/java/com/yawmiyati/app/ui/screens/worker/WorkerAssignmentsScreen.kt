@@ -457,7 +457,14 @@ internal fun AssignmentCard(
                     OutlinedButton(onClick = onManage, modifier = Modifier.fillMaxWidth()) { Text("التفاصيل") }
                     }
                 }
-                // DECLINED/CANCELLED: no action
+                "CANCELLED" -> if (assignment.cancellationReason.isNotBlank()) {
+                    Text(
+                        "سبب الإلغاء: ${assignment.cancellationReason}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                // DECLINED: no action
             }
         }
     }
