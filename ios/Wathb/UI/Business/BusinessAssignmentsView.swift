@@ -261,7 +261,11 @@ struct BusinessAssignmentDetailView: View {
                     }
                     switch a.status {
                     case "OFFERED": Text("بانتظار قبول العامل").font(.wathb(16))
-                    case "CANCELLED": Text("ملغاة").font(.wathb(16)).foregroundStyle(Brand.error)
+                    case "CANCELLED":
+                        Text("ملغاة").font(.wathb(16)).foregroundStyle(Brand.error)
+                        if let reason = a.cancellationReason, !reason.isBlank {
+                            Text("السبب: \(reason)").font(.wathb(14)).foregroundStyle(Brand.muted)
+                        }
                     case "DECLINED": Text("رفض العامل المهمة").font(.wathb(16)).foregroundStyle(Brand.muted)
                     default: EmptyView()
                     }
@@ -269,8 +273,9 @@ struct BusinessAssignmentDetailView: View {
                 }
                 .card()
 
-                if ["OFFERED", "ACCEPTED"].contains(a.status) {
-                    Button("إلغاء المهمة") { cancelReason = ""; cancelling = true }
+                // An offer can be withdrawn any time; an accepted task only before its work day.
+                if a.status == "OFFERED" || (a.status == "ACCEPTED" && !a.workDayReached(today: Gaza.today())) {
+                    Button(a.status == "OFFERED" ? "سحب العرض" : "إلغاء المهمة") { cancelReason = ""; cancelling = true }
                         .buttonStyle(OutlineButtonStyle(color: Brand.error)).disabled(actions.busy)
                 }
             }
@@ -285,7 +290,7 @@ struct BusinessAssignmentDetailView: View {
         .notDoneSheet(isPresented: $notDone) { category, notes in
             actions.reportNotDone(a, category: category, notes: notes, reload: reload)
         }
-        .alert("إلغاء المهمة", isPresented: $cancelling) {
+        .alert(a.status == "OFFERED" ? "سحب العرض" : "إلغاء المهمة", isPresented: $cancelling) {
             TextField("سبب الإلغاء (مطلوب)", text: $cancelReason)
             Button("تأكيد الإلغاء", role: .destructive) {
                 guard !cancelReason.isBlank else { actions.toast = "اكتب سبب الإلغاء"; return }
@@ -293,7 +298,8 @@ struct BusinessAssignmentDetailView: View {
             }
             Button("تراجع", role: .cancel) {}
         } message: {
-            Text("هل أنت متأكد أنك تريد إلغاء مهمة هذا العامل؟")
+            Text(a.status == "OFFERED" ? "لن يستطيع العامل قبول هذا العرض بعد سحبه."
+                                       : "هل أنت متأكد أنك تريد إلغاء مهمة هذا العامل؟")
         }
     }
 

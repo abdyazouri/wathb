@@ -127,8 +127,13 @@ struct AssignmentCard: View {
                 NavigationLink("التفاصيل", value: WorkerRoute.assignment(a)).buttonStyle(OutlineButtonStyle())
             }
 
+        case "CANCELLED":
+            if let reason = a.cancellationReason, !reason.isBlank {
+                Text("سبب الإلغاء: \(reason)").font(.wathb(13)).foregroundStyle(Brand.error)
+            }
+
         default:
-            EmptyView()  // DECLINED / CANCELLED: no action
+            EmptyView()  // DECLINED: no action
         }
     }
 

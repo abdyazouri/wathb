@@ -131,6 +131,7 @@ struct Assignment: Decodable, Identifiable, Hashable {
     let termsSnapshot: [String: JSONValue]?
     let offeredAt: String?
     let acceptedAt: String?
+    let cancellationReason: String?
     let wageObligationId: String?
     /// The wage's status (DUE, AWAITING_ACK, VERIFIED_PAID, …); nil from older servers.
     let wageStatus: String?
