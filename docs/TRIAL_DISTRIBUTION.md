@@ -1,6 +1,6 @@
 # توزيع نسخة التجربة الخاصة من تطبيق وَثْب (أندرويد)
 
-نسخة التجربة لعدد محدود: منشأتان وخمسة عمال. تُوزَّع بطريقتين: Firebase App Distribution لمن عنده بريد إلكتروني، أو إرسال ملف الـ APK مباشرة عبر واتساب لمن ليس عنده. التطبيق يتصل بالسيرفر الحقيقي `https://wathb-api2.onrender.com/api/v1/`.
+نسخة التجربة لعدد محدود: منشأتان وخمسة عمال. تُوزَّع بثلاث طرق: Firebase App Distribution لمن عنده بريد إلكتروني، أو رابط التنزيل الدائم **https://wathb.quotefather.com/apk**، أو إرسال ملف الـ APK مباشرة عبر واتساب. التطبيق يتصل بالسيرفر الحقيقي `https://wathb-api2.onrender.com/api/v1/`.
 
 ## بيانات النسخة الحالية
 
@@ -90,6 +90,30 @@ FIREBASE_APP_ID="..." scripts/distribute_trial.sh "إصلاح ظهور زر تأ
 
 السكربت يبني الـ APK الموقّع ويرسله لمجموعة `trial`، فيصل لكل مختبر بريد فيه رابط التنزيل.
 
+## رابط التنزيل الدائم: https://wathb.quotefather.com/apk
+
+- الرابط ثابت ويمكن إرساله لأي مختبر في أي وقت. صفحة `site/apk/index.html` تحوّل مباشرة إلى
+  `https://github.com/abdyazouri/wathb/releases/latest/download/wathb.apk`، أي ملف **wathb.apk** في **آخر إصدار** على GitHub.
+- الصفحة عليها `noindex` (لا تظهر في محركات البحث)، وغير مربوطة من الصفحة الرئيسية، و`APK_URL` في الصفحة الرئيسية يبقى فارغًا.
+- السيرفر يرسل الرابط نفسه في `app/config/` (المتغيّر `APP_APK_DOWNLOAD_URL` على Render)، فتفتحه شاشة التحديث الإجباري.
+- المستودع `abdyazouri/wathb` عام، لذلك يُنزَّل الملف بلا تسجيل دخول. إن صار المستودع خاصًا يتوقف الرابط.
+
+### نشر نسخة جديدة على الرابط
+
+1. ارفع `versionCode` (وعدّل `versionName`) وابنِ: `cd android && ./gradlew assembleRelease`، ثم تحقّق من البصمة بـ `apksigner`.
+2. أنشئ إصدار GitHub بالملف **باسم `wathb.apk` دائمًا** (الاسم ثابت في كل إصدار، وإلا يتوقف الرابط):
+
+```
+gh release create v0.9.0-trial.3 "android/app/build/outputs/apk/release/app-release.apk#wathb.apk" \
+  -R abdyazouri/wathb --target main --title "وَثْب 0.9.0-trial.3 (تجربة خاصة)" --notes "…" --latest
+```
+
+   - لا تعلّمه **pre-release** ولا **draft**: رابط `releases/latest` يتجاهلهما.
+   - على جهاز المطوّر استخدم `/usr/local/bin/gh` (الأمر `gh` وحده يشير لأداة أخرى).
+3. حدّث رقم النسخة المكتوب في `site/apk/index.html` وادفعه.
+4. تحقّق: `curl -sIL https://wathb.quotefather.com/apk` ينتهي بـ 200 وملف بحجم النسخة الجديدة.
+5. إن أردت إجبار النسخ الأقدم على التحديث: بعد التوزيع (لا قبله) اضبط `APP_MIN_SUPPORTED_VERSION_CODE` على Render على الـ versionCode الجديد. النسخ قبل `0.9.0-trial.2` لا تقرأ هذا الإعداد.
+
 ## الإرسال المباشر عبر واتساب (لمن لا يملك بريدًا)
 
 - أرسل الملف `android/app/build/outputs/apk/release/app-release.apk` **في محادثة خاصة** للمختبر.
@@ -97,7 +121,7 @@ FIREBASE_APP_ID="..." scripts/distribute_trial.sh "إصلاح ظهور زر تأ
 
 ## التثبيت عند المختبر
 
-1. افتح رابط Firebase من البريد، أو افتح ملف الـ APK من واتساب.
+1. افتح رابط Firebase من البريد، أو الرابط https://wathb.quotefather.com/apk، أو ملف الـ APK من واتساب.
 2. إذا ظهر «للحماية، لا يُسمح بتثبيت تطبيقات من هذا المصدر»: اضغط **الإعدادات** وفعّل **السماح من هذا المصدر** (للمتصفح أو لواتساب أو لتطبيق Firebase App Tester)، ثم ارجع.
 3. إذا ظهر تحذير **Play Protect** («تطبيق غير معروف»): اضغط **مزيد من التفاصيل ← التثبيت على أي حال**. التحذير طبيعي لأن التطبيق ليس من متجر Play.
 4. على هواتف شاومي (HyperOS / MIUI) قد يُطلب تأكيد إضافي أو الانتظار بضع ثوانٍ قبل زر التثبيت.
