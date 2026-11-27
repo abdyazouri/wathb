@@ -170,9 +170,12 @@ struct WagePaymentView: View {
 
     @ViewBuilder private func manualSection(_ info: PaymentInfo) -> some View {
         Text("١. افتح تطبيق Jawwal Pay وحوّل المبلغ إلى محفظة العامل. استعمل زرّي النسخ.").font(.wathb(15))
-        Text("٢. ارجع إلى وَثْب واضغط «حوّلت الأجر».").font(.wathb(15))
-        FormField(label: "رقم العملية في Jawwal Pay (اختياري)", text: $reference)
+        Text("٢. ارجع إلى وَثْب، اكتب رقم العملية واضغط «حوّلت الأجر».").font(.wathb(15))
+        FormField(label: "رقم العملية في Jawwal Pay", text: $reference)
+        Text("مطلوب: تجده في رسالة Jawwal Pay أو في سجل العمليات.").font(.wathb(12)).foregroundStyle(Brand.muted)
+        // The server refuses a declaration without the Jawwal Pay transaction number.
         LoadingButton(title: "حوّلت الأجر", loading: busy) { confirmManual = true }
+            .disabled(reference.isBlank)
     }
 
     @ViewBuilder private func automaticSection(_ info: PaymentInfo) -> some View {
