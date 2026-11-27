@@ -52,6 +52,16 @@ class PaymentDeclarationCreateSerializer(serializers.ModelSerializer):
     """Manual mode «حوّلت الأجر». The amount, currency and method are set by the server
     (agreed amount, ILS, Jawwal Pay); anything the client sends for them is ignored."""
     payment_date = serializers.DateField(required=False)
+    # The Jawwal Pay transaction number is required: it is what the admin checks in a dispute.
+    transaction_reference = serializers.CharField(
+        max_length=PaymentDeclaration._meta.get_field("transaction_reference").max_length,
+        trim_whitespace=True,
+        error_messages={
+            "required": "أدخل رقم العملية في Jawwal Pay.",
+            "blank": "أدخل رقم العملية في Jawwal Pay.",
+            "null": "أدخل رقم العملية في Jawwal Pay.",
+        },
+    )
 
     class Meta:
         model = PaymentDeclaration

@@ -130,6 +130,7 @@ class PaymentDeclarationTests(APITestCase):
             "currency": "ILS",
             "payment_date": str(datetime.date.today()),
             "payment_method": "JAWWAL_PAY",
+            "transaction_reference": "JP-1001",
         }
 
     def test_business_can_declare_payment(self):
@@ -141,6 +142,24 @@ class PaymentDeclarationTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.obligation.refresh_from_db()
         self.assertEqual(self.obligation.status, WageObligationStatus.AWAITING_ACK)
+
+    def test_declaring_without_a_transaction_reference_is_refused(self):
+        """The Jawwal Pay transaction number is required (blank, spaces or missing)."""
+        self.client.force_authenticate(user=self.biz_user)
+        url = reverse("wage-declare-payment", args=[self.obligation.pk])
+        before = self.obligation.status
+        for reference in ("", "   ", None):
+            body = self._decl_body()
+            if reference is None:
+                body.pop("transaction_reference")
+            else:
+                body["transaction_reference"] = reference
+            response = self.client.post(url, body)
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, reference)
+            self.assertIn("رقم العملية", str(response.data))
+        self.obligation.refresh_from_db()
+        self.assertEqual(self.obligation.status, before)
+        self.assertFalse(PaymentDeclaration.objects.filter(wage_obligation=self.obligation).exists())
 
     def test_worker_cannot_declare_payment(self):
         self.client.force_authenticate(user=self.worker)
@@ -435,7 +454,8 @@ class AdminVerifyPaymentTests(APITestCase):
         response = self.client.post(
             reverse("wage-declare-payment", args=[self.obligation.pk]),
             {"declared_amount": self.obligation.amount, "currency": "ILS",
-             "payment_date": str(datetime.date.today()), "payment_method": "PALPAY"},
+             "payment_date": str(datetime.date.today()), "payment_method": "PALPAY",
+             "transaction_reference": "JP-2002"},
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.obligation.refresh_from_db()

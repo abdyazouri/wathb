@@ -137,6 +137,7 @@ class ScenarioAHappyPath(APITestCase):
                 "currency": "ILS",
                 "payment_date": str(datetime.date.today()),
                 "payment_method": "JAWWAL_PAY",
+                "transaction_reference": "JP-E2E-1",
             },
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
