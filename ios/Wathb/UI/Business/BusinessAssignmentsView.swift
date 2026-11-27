@@ -146,8 +146,11 @@ struct BusinessTaskActionsView: View {
                 // The worker has not asked (yet): the business can still record completion.
                 LoadingButton(title: "تأكيد إتمام العمل", loading: actions.busy) { confirmComplete = true }
             } else if a.status == "COMPLETED" {
-                if let wage = a.wageObligationId {
-                    Button("تحويل الأجر") { nav.open(.payment(wage)) }.buttonStyle(OutlineButtonStyle())
+                // «تحويل الأجر» only while the wage is unpaid (older servers send no status).
+                if let wage = a.wageObligationId, ["PENDING", "DUE", "REJECTED"].contains(a.wageStatus ?? "DUE") {
+                    Button("تحويل الأجر") { nav.open(.payment(wage)) }.buttonStyle(PrimaryButtonStyle())
+                } else if let status = a.wageStatus {
+                    Text("الأجر: \(businessWageLabel(status))").font(.wathb(14)).foregroundStyle(businessWageColor(status))
                 }
                 Text("✓ تم تأكيد إتمام العمل").font(.wathb(13)).foregroundStyle(Brand.muted)
             }

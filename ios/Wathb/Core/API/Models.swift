@@ -132,6 +132,8 @@ struct Assignment: Decodable, Identifiable, Hashable {
     let offeredAt: String?
     let acceptedAt: String?
     let wageObligationId: String?
+    /// The wage's status (DUE, AWAITING_ACK, VERIFIED_PAID, …); nil from older servers.
+    let wageStatus: String?
     /// On an offer: terms the business changed since the worker applied.
     let changedTerms: [String]?
     /// SUBMITTED / CONFIRMED / DISPUTED, or nil before anyone recorded completion.
