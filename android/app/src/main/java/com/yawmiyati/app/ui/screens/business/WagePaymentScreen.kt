@@ -168,15 +168,17 @@ private fun ManualSection(state: WagePaymentState, info: PaymentInfoResponse, on
         )
     }
     Text("١. افتح تطبيق Jawwal Pay وحوّل المبلغ إلى محفظة العامل. استعمل زرّي النسخ.", style = MaterialTheme.typography.bodyMedium)
-    Text("٢. ارجع إلى وَثْب واضغط «حوّلت الأجر».", style = MaterialTheme.typography.bodyMedium)
+    Text("٢. ارجع إلى وَثْب، اكتب رقم العملية واضغط «حوّلت الأجر».", style = MaterialTheme.typography.bodyMedium)
     OutlinedTextField(
         value = reference,
         onValueChange = { reference = it.take(100) },
-        label = { Text("رقم العملية في Jawwal Pay (اختياري)") },
+        label = { Text("رقم العملية في Jawwal Pay") },
+        supportingText = { Text("مطلوب: تجده في رسالة Jawwal Pay أو في سجل العمليات.") },
         singleLine = true,
         modifier = Modifier.fillMaxWidth()
     )
-    Button(onClick = { confirming = true }, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+    // The server refuses a declaration without the Jawwal Pay transaction number.
+    Button(onClick = { confirming = true }, enabled = !state.busy && reference.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
         if (state.busy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.padding(end = 8.dp))
         Text("حوّلت الأجر")
     }

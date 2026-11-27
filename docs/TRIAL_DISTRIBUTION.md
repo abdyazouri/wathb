@@ -7,8 +7,8 @@
 | البند | القيمة |
 |---|---|
 | معرّف التطبيق (applicationId) | `com.wathb.app` |
-| versionName | `0.9.0-trial.1` |
-| versionCode | `3` |
+| versionName | `0.9.0-trial.2` |
+| versionCode | `4` |
 | أقل إصدار أندرويد (minSdk) | 26 (أندرويد 8) |
 | targetSdk | 36 |
 

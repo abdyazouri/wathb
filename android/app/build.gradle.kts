@@ -45,8 +45,8 @@ android {
         // RELEASE RULE: raise versionCode whenever backend accounts/consent.py
         // bumps CONSENT_VERSION — old clients must update before they can register.
         // Every distributed build needs a higher versionCode (testers update over the old one).
-        versionCode = 3
-        versionName = "0.9.0-trial.1"
+        versionCode = 4
+        versionName = "0.9.0-trial.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

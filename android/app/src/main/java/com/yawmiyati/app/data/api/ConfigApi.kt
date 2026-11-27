@@ -1,16 +1,18 @@
 package com.yawmiyati.app.data.api
 
+import com.google.gson.annotations.SerializedName
 import com.yawmiyati.app.BuildConfig
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 
+/** GET app/config/ — the server sends snake_case keys. */
 data class AppConfigResponse(
-    val minSupportedVersionCode: Int,
-    val latestVersionCode: Int,
-    val apkDownloadUrl: String,
-    val supportWhatsapp: String,
+    @SerializedName("min_supported_version_code") val minSupportedVersionCode: Int = 0,
+    @SerializedName("latest_version_code") val latestVersionCode: Int = 0,
+    @SerializedName("apk_download_url") val apkDownloadUrl: String = "",
+    @SerializedName("support_whatsapp") val supportWhatsapp: String = "",
 )
 
 interface ConfigApiService {
