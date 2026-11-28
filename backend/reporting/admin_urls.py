@@ -16,4 +16,5 @@ urlpatterns = [
     path("reports/pilot-summary/export/", PilotSummaryExportView.as_view(), name="admin-pilot-summary-export"),
     path("disputes/stale-wages/", AdminStaleWageListView.as_view(), name="admin-stale-wages"),
     path("disputes/unpaid-wages/", AdminUnpaidWageListView.as_view(), name="admin-unpaid-wages"),
+    path("observers/", include("observers.api_urls")),
 ] + dispute_admin_urls + funding_admin_urls
