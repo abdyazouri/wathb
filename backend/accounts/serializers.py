@@ -1,6 +1,7 @@
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from accounts.consent import CONSENT_VERSION
 from accounts.models import User, WorkerProfile, BusinessProfile, Role
@@ -24,7 +25,11 @@ class PhoneTokenObtainPairSerializer(TokenObtainPairSerializer):
                 attrs[self.username_field] = _normalize(raw)
             except serializers.ValidationError:
                 pass  # let authenticate() fail naturally → 401
-        return super().validate(attrs)
+        data = super().validate(attrs)
+        # Observers use the web dashboard only, never the mobile apps.
+        if self.user.role == Role.OBSERVER:
+            raise AuthenticationFailed("بيانات الدخول غير صحيحة.")
+        return data
 
 
 class RegisterSerializer(serializers.ModelSerializer):

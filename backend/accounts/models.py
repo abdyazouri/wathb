@@ -8,6 +8,8 @@ class Role(models.TextChoices):
     BUSINESS = "BUSINESS", "منشأة"
     FUNDER = "FUNDER", "جهة مموِّلة"
     ADMIN = "ADMIN", "مشرف"
+    # Read-only web dashboard (observers app); never signs in to the mobile apps.
+    OBSERVER = "OBSERVER", "مراقب"
 
 
 class UserManager(BaseUserManager):
