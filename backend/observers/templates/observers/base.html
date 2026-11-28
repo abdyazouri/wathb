@@ -30,6 +30,11 @@
   .filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 16px; }
   .filter label { font-size: 13px; color: var(--muted); display: grid; gap: 2px; }
   .filter input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); }
+  .clear { color: var(--teal); font-size: 14px; align-self: center; }
+  .quick { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 12px; }
+  .quick a { font-size: 13px; color: var(--teal); text-decoration: none; border: 1px solid var(--line);
+             background: var(--card); border-radius: 999px; padding: 4px 12px; }
+  .quick a.on { background: var(--teal); border-color: var(--teal); color: #fff; }
   .btn { font: inherit; background: var(--teal); color: #fff; border: 0; border-radius: 8px; padding: 7px 14px; text-decoration: none; cursor: pointer; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
@@ -64,7 +69,7 @@
     <a href="{% url 'observers:businesses' %}" class="{% if page == 'businesses' %}on{% endif %}">{{ t.businesses }}</a>
     <a href="{% url 'observers:activity' %}" class="{% if page == 'activity' %}on{% endif %}">{{ t.activity }}</a>
     {% endif %}
-    <a href="{% url 'observers:export' %}{% if period %}?from={{ period.start|date:'Y-m-d' }}&to={{ period.end|date:'Y-m-d' }}{% endif %}">{{ t.export }}</a>
+    <a href="{% url 'observers:export' %}{{ query }}">{{ t.export }}</a>
   </nav>
   <form class="who" method="post" action="{% url 'observers:logout' %}">{% csrf_token %}
     <span>{{ profile.display_name }} · {{ profile.organisation }}</span>
@@ -74,12 +79,18 @@
 <main>
   {% if period %}
   <form class="filter" method="get">
-    <label>{{ t.from }}<input type="date" name="from" value="{{ period.start|date:'Y-m-d' }}"></label>
-    <label>{{ t.to }}<input type="date" name="to" value="{{ period.end|date:'Y-m-d' }}"></label>
+    <label>{{ t.from }}<input type="date" name="from" value="{{ chosen_from }}"></label>
+    <label>{{ t.to }}<input type="date" name="to" value="{{ chosen_to }}"></label>
     <button class="btn" type="submit">{{ t.apply }}</button>
+    {% if not all_time %}<a class="clear" href="?">{{ t.clear_dates }}</a>{% endif %}
   </form>
+  <div class="quick">
+    <a href="?" class="{% if all_time %}on{% endif %}">{{ t.all_time }}</a>
+    {% if trial_query %}<a href="{{ trial_query }}" class="{% if query == trial_query %}on{% endif %}">{{ t.trial_period }}</a>{% endif %}
+    <a href="{{ last4_query }}" class="{% if query == last4_query %}on{% endif %}">{{ t.last_4_weeks }}</a>
+  </div>
   <div class="meta">
-    {{ t.period }}: {{ t.from }} <bdi dir="ltr">{{ period.start|date:'Y-m-d' }}</bdi> {{ t.to_word }} <bdi dir="ltr">{{ period.end|date:'Y-m-d' }}</bdi>
+    {{ t.period }}: {% if all_time %}{{ t.all_time }}{% else %}{{ t.from }} <bdi dir="ltr">{{ period.start|date:'Y-m-d' }}</bdi> {{ t.to_word }} <bdi dir="ltr">{{ period.end|date:'Y-m-d' }}</bdi>{% endif %}
     · {% if profile.scope.all_businesses %}{{ t.scope_all }}{% else %}{{ t.scope_some }}{% endif %}
     · {{ t.level }}: {{ level_label }}
   </div>

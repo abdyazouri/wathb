@@ -13,7 +13,7 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.encoding import force_str
-from django.utils.http import urlsafe_base64_decode
+from django.utils.http import urlencode, urlsafe_base64_decode
 from django.views.decorators.http import require_POST
 
 from accounts.models import Role, User
@@ -59,7 +59,19 @@ def _context(request, profile, page, **extra):
 
 
 def _period(request, profile):
-    return metrics.period_for(profile.scope, request.GET.get("from"), request.GET.get("to"))
+    """(period, filter context). All time unless the observer picked dates."""
+    chosen = {k: request.GET.get(k, "").strip() for k in ("from", "to")}
+    period, all_time = metrics.period_for(profile.scope, chosen["from"], chosen["to"])
+    today = timezone.localdate()
+    trial = metrics.trial_period()
+    query = urlencode({k: v for k, v in chosen.items() if v})
+    return period, {
+        "all_time": all_time,
+        "chosen_from": chosen["from"], "chosen_to": chosen["to"],
+        "query": f"?{query}" if query else "",
+        "trial_query": f"?from={trial.start}&to={trial.end}" if trial else None,
+        "last4_query": f"?from={today - datetime.timedelta(days=27)}&to={today}",
+    }
 
 
 # ── sign-in ─────────────────────────────────────────────────────────────────────
@@ -193,19 +205,19 @@ def _chart(weeks):
 @observer_page("overview")
 def overview(request, profile):
     t = text(profile.language)
-    period = _period(request, profile)
+    period, filters = _period(request, profile)
     scope = metrics.Scope(profile.scope)
     numbers = metrics.compute(scope, period)
     weeks = metrics.weekly(scope, period)
     cards = [{"label": t["metrics"][k], "value": _fmt(k, numbers[k])} for k in OVERVIEW_CARDS]
     return render(request, "observers/overview.html",
-                  _context(request, profile, "overview", period=period, cards=cards, chart=_chart(weeks)))
+                  _context(request, profile, "overview", period=period, cards=cards, chart=_chart(weeks), **filters))
 
 
 @observer_page("businesses", records=True)
 def businesses(request, profile):
     t = text(profile.language)
-    period = _period(request, profile)
+    period, filters = _period(request, profile)
     rows = [{
         "name": _business_label(profile, t, r["business"]),
         "jobs": r["jobs_posted"], "days": r["work_days_completed"],
@@ -213,13 +225,14 @@ def businesses(request, profile):
         "confirmed": _fmt("confirmed_by_workers_pct", r["confirmed_by_workers_pct"]),
         "open_disputes": r["open_disputes"],
     } for r in metrics.business_rows(profile.scope, period)]
-    return render(request, "observers/businesses.html", _context(request, profile, "businesses", period=period, rows=rows))
+    return render(request, "observers/businesses.html",
+                  _context(request, profile, "businesses", period=period, rows=rows, **filters))
 
 
 @observer_page("activity", records=True)
 def activity(request, profile):
     t = text(profile.language)
-    period = _period(request, profile)
+    period, filters = _period(request, profile)
     named = profile.level == ObserverLevel.NAMED
     rows = []
     for ev in metrics.activity(profile.scope, period):
@@ -242,13 +255,15 @@ def activity(request, profile):
             "worker": _worker_label(profile, t, ev.get("worker")),
             "details": " · ".join(details),
         })
-    return render(request, "observers/activity.html", _context(request, profile, "activity", period=period, rows=rows))
+    return render(request, "observers/activity.html",
+                  _context(request, profile, "activity", period=period, rows=rows, **filters))
 
 
 @observer_page("export")
 def export_csv(request, profile):
-    """Weekly aggregate numbers only (no individual records), plus one row for the whole period."""
-    period = _period(request, profile)
+    """Weekly aggregate numbers only (no individual records), plus one row for the whole period.
+    All time by default, the chosen dates otherwise (same rule as the pages)."""
+    period, _ = _period(request, profile)
     scope = metrics.Scope(profile.scope)
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="wathb_weekly_{period.start}_{period.end}.csv"'

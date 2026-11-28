@@ -1,6 +1,8 @@
 """Trial and activity numbers for the observer dashboard.
 
 Every number respects the observer's scope (businesses and dates) and a period of Gaza calendar days.
+By default the period is all time (first record to today); dates are an optional filter. Businesses
+marked is_test, and everything linked to them, never count.
 Definitions (approved by the product owner):
 - active worker: has an accepted, active or completed task whose work day is in the period;
 - active business: posted a job in the period, or has such a task;
@@ -50,26 +52,32 @@ def _parse(value):
         return None
 
 
-def default_period():
-    """The trial (TRIAL_START_DATE..TRIAL_END_DATE), or the last 8 weeks when they are not set."""
+def trial_period():
+    """TRIAL_START_DATE..TRIAL_END_DATE when both are set (a quick filter), else None."""
     start, end = _parse(settings.TRIAL_START_DATE), _parse(settings.TRIAL_END_DATE)
-    if start and end and start <= end:
-        return Period(start, end)
-    today = timezone.localdate()
-    return Period(today - datetime.timedelta(days=55), today)
+    return Period(start, end) if start and end and start <= end else None
 
 
-def period_for(scope, start=None, end=None):
-    """The requested (or default) period, clipped to the scope's own dates."""
-    base = default_period()
-    start, end = _parse(start) or base.start, _parse(end) or base.end
-    if scope.start_date:
-        start = max(start, scope.start_date)
-    if scope.end_date:
-        end = min(end, scope.end_date)
+def first_record_date(observer_scope):
+    """The first job posted within the scope (Gaza date), or today when there is none."""
+    first = JobListing.objects.filter(Scope(observer_scope).q(""), published_at__isnull=False).aggregate(
+        first=Min("published_at"))["first"]
+    return _local_date(first) if first else timezone.localdate()
+
+
+def period_for(observer_scope, start=None, end=None):
+    """(period, all_time). No dates: all time, from the first record to today. Either date may be given
+    alone. The scope's own dates always limit the result, whatever is asked."""
+    chosen_start, chosen_end = _parse(start), _parse(end)
+    start = chosen_start or first_record_date(observer_scope)
+    end = chosen_end or timezone.localdate()
+    if observer_scope.start_date:
+        start = max(start, observer_scope.start_date)
+    if observer_scope.end_date:
+        end = min(end, observer_scope.end_date)
     if end < start:
         end = start
-    return Period(start, end)
+    return Period(start, end), not (chosen_start or chosen_end)
 
 
 class Scope:
@@ -85,11 +93,12 @@ class Scope:
             self.ids = set(observer_scope.businesses.values_list("pk", flat=True))
 
     def q(self, path):
-        """Q on «<path>business_id» (path like "assignment__job__")."""
-        return Q() if self.all else Q(**{f"{path}business_id__in": self.ids})
+        """Q on «<path>business» (path like "assignment__job__"); test businesses are always left out."""
+        real = Q(**{f"{path}business__is_test": False})
+        return real if self.all else real & Q(**{f"{path}business_id__in": self.ids})
 
     def businesses(self):
-        qs = BusinessProfile.objects.all()
+        qs = BusinessProfile.objects.filter(is_test=False)
         return qs if self.all else qs.filter(pk__in=self.ids)
 
 
