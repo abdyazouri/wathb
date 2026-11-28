@@ -87,6 +87,8 @@ class WorkerProfile(models.Model):
 
 class BusinessProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="business_profile")
+    # Test data: hidden from every observer page and export (observers app).
+    is_test = models.BooleanField(default=False)
     legal_name = models.CharField(max_length=300)
     trade_name = models.CharField(max_length=300, blank=True)
     registration_number = models.CharField(max_length=100, blank=True)
