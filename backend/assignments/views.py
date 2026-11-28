@@ -17,7 +17,7 @@ from assignments.serializers import (
     AssignmentSerializer, AttendanceRecordSerializer, AttendanceSubmitSerializer,
     CompletionRecordSerializer, CompletionSubmitSerializer,
 )
-from jobs.models import JobApplication, ApplicationStatus, JobListingStatus
+from jobs.models import JobApplication, ApplicationStatus, JobListing, JobListingStatus
 from yawmiyati.money import format_money
 
 
@@ -76,6 +76,10 @@ class AssignmentAcceptView(APIView):
         # An offer whose application was rejected or withdrawn (rows from before the fix).
         if assignment.application_id and assignment.application.status != ApplicationStatus.OFFERED:
             return Response({"detail": "سُحب هذا العرض ولم يعد متاحًا."}, status=status.HTTP_400_BAD_REQUEST)
+        # The job row is locked so two workers cannot take the last place at once.
+        job = JobListing.objects.select_for_update().get(pk=assignment.job_id)
+        if job.places_taken() >= job.num_workers_needed:
+            return Response({"detail": "اكتمل عدد العمال المطلوب لهذه الوظيفة."}, status=status.HTTP_400_BAD_REQUEST)
 
         snapshot = assignment.job.material_terms_snapshot()
         assignment.terms_snapshot = snapshot
@@ -87,10 +91,7 @@ class AssignmentAcceptView(APIView):
         application.status = ApplicationStatus.ACCEPTED
         application.save(update_fields=["status"])
 
-        job = assignment.job
-        if job.status == JobListingStatus.PUBLISHED:
-            job.status = JobListingStatus.FILLED
-            job.save(update_fields=["status"])
+        job.refresh_fill_status()
 
         return Response(AssignmentSerializer(assignment).data)
 
@@ -152,6 +153,7 @@ class AssignmentCancelView(APIView):
             return Response({"detail": "يجب ذكر السبب."}, status=status.HTTP_400_BAD_REQUEST)
 
         was_offer = assignment.status == AssignmentStatus.OFFERED
+        held_a_place = assignment.status in (AssignmentStatus.ACCEPTED, AssignmentStatus.ACTIVE)
         with transaction.atomic():
             assignment.status = AssignmentStatus.CANCELLED
             assignment.cancelled_at = timezone.now()
@@ -163,6 +165,9 @@ class AssignmentCancelView(APIView):
                 application.status = (ApplicationStatus.WITHDRAWN if user.role == Role.WORKER
                                       else ApplicationStatus.REJECTED)
                 application.save(update_fields=["status"])
+            # A freed place reopens the job (worker, business or admin cancelling).
+            if held_a_place:
+                JobListing.objects.select_for_update().get(pk=assignment.job_id).refresh_fill_status()
 
         if user.role == Role.BUSINESS:
             _notify(

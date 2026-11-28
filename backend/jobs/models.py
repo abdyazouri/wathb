@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.utils import timezone
 from django.conf import settings
 
 
@@ -46,7 +47,8 @@ VALID_JOB_TRANSITIONS = {
     JobListingStatus.DRAFT: [JobListingStatus.PENDING_REVIEW, JobListingStatus.CANCELLED],
     JobListingStatus.PENDING_REVIEW: [JobListingStatus.PUBLISHED, JobListingStatus.DRAFT, JobListingStatus.CANCELLED],
     JobListingStatus.PUBLISHED: [JobListingStatus.FILLED, JobListingStatus.CANCELLED],
-    JobListingStatus.FILLED: [JobListingStatus.IN_PROGRESS, JobListingStatus.CANCELLED],
+    # FILLED → PUBLISHED: a cancelled task freed a place before the work day (refresh_fill_status).
+    JobListingStatus.FILLED: [JobListingStatus.PUBLISHED, JobListingStatus.IN_PROGRESS, JobListingStatus.CANCELLED],
     JobListingStatus.IN_PROGRESS: [JobListingStatus.COMPLETED, JobListingStatus.CANCELLED],
     JobListingStatus.COMPLETED: [],
     JobListingStatus.CANCELLED: [],
@@ -112,6 +114,26 @@ class JobListing(models.Model):
 
     def can_transition_to(self, new_status):
         return new_status in VALID_JOB_TRANSITIONS.get(self.status, [])
+
+    def places_taken(self):
+        """Tasks that hold a place: accepted, under way or done."""
+        from assignments.models import AssignmentStatus
+        return self.assignments.filter(
+            status__in=[AssignmentStatus.ACCEPTED, AssignmentStatus.ACTIVE, AssignmentStatus.COMPLETED]
+        ).count()
+
+    def refresh_fill_status(self):
+        """FILLED once the accepted tasks cover num_workers_needed; back to PUBLISHED when a cancellation
+        frees a place and the work day has not passed, so other workers can apply again."""
+        taken = self.places_taken()
+        if self.status == JobListingStatus.PUBLISHED and taken >= self.num_workers_needed:
+            self.status = JobListingStatus.FILLED
+        elif (self.status == JobListingStatus.FILLED and taken < self.num_workers_needed
+              and timezone.localdate() <= self.work_date):
+            self.status = JobListingStatus.PUBLISHED
+        else:
+            return
+        self.save(update_fields=["status"])
 
     def material_terms_snapshot(self):
         return {
