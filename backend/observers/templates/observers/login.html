@@ -1,0 +1,15 @@
+{% extends "observers/base.html" %}
+{% block title %}{{ t.login_title }}{% endblock %}
+{% block body %}
+<div class="box">
+  <h1>{{ t.login_title }}</h1>
+  {% if notice %}<div class="ok">{{ notice }}</div>{% endif %}
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form method="post">{% csrf_token %}
+    <label>{{ t.email }}<input type="email" name="email" autocomplete="username" required dir="ltr"></label>
+    <label>{{ t.password }}<input type="password" name="password" autocomplete="current-password" required dir="ltr"></label>
+    <button class="btn" type="submit">{{ t.sign_in }}</button>
+  </form>
+  <div class="langs"><a href="?lang=ar">العربية</a> · <a href="?lang=en">English</a></div>
+</div>
+{% endblock %}

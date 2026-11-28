@@ -7,6 +7,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 urlpatterns = [
     path("django-admin/", admin.site.urls),
     path("api/v1/", include("yawmiyati.api_urls")),
+    path("observer/", include("observers.urls")),
 ]
 
 if settings.DEBUG:

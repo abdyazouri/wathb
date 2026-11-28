@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "notifications",
     "audit",
     "reporting",
+    "observers",
 ]
 
 MIDDLEWARE = [
@@ -43,6 +44,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "observers.middleware.ObserverAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -83,6 +85,7 @@ AUTH_USER_MODEL = "accounts.User"
 
 AUTHENTICATION_BACKENDS = [
     "accounts.backends.PhoneAuthBackend",
+    "observers.backends.ObserverEmailBackend",
 ]
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -109,7 +112,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "accounts.authentication.AppJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -182,3 +185,10 @@ APP_MIN_SUPPORTED_VERSION_CODE = config("APP_MIN_SUPPORTED_VERSION_CODE", defaul
 APP_LATEST_VERSION_CODE = config("APP_LATEST_VERSION_CODE", default=1, cast=int)
 APP_APK_DOWNLOAD_URL = config("APP_APK_DOWNLOAD_URL", default="")
 SUPPORT_WHATSAPP = config("SUPPORT_WHATSAPP", default="+970000000000")
+
+# Observer dashboard (observers app): read-only web access for partners, team members and funders.
+TRIAL_START_DATE = config("TRIAL_START_DATE", default="")  # YYYY-MM-DD; default period of the dashboard
+TRIAL_END_DATE = config("TRIAL_END_DATE", default="")      # (falls back to the last 8 weeks when unset)
+OBSERVER_BASE_URL = config("OBSERVER_BASE_URL", default="https://wathb-api2.onrender.com")
+OBSERVER_LINK_TIMEOUT_SECONDS = 48 * 3600   # one-time set-password link
+OBSERVER_SESSION_SECONDS = 4 * 3600         # observers sign in again after 4 hours
