@@ -1,4 +1,3 @@
-import csv
 import datetime
 import time
 from functools import wraps
@@ -9,18 +8,18 @@ from django.contrib.auth.password_validation import (
     MinimumLengthValidator, get_default_password_validators, validate_password,
 )
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse
+from django.db.models import Count, Min
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.encoding import force_str
-from django.utils.http import urlencode, urlsafe_base64_decode
+from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.http import require_POST
 
 from accounts.models import Role, User
 from audit.models import AuditEvent
 from observers import audit, metrics
 from observers.backends import ObserverEmailBackend
-from observers.i18n import OVERVIEW_CARDS, PERCENT_KEYS, text
+from observers.i18n import text
 from observers.models import ObserverLevel, Pseudonym, PseudonymKind
 from observers.tokens import observer_password_token
 
@@ -31,9 +30,8 @@ PASSWORD_MIN_LENGTH = 12
 
 # ── access ──────────────────────────────────────────────────────────────────────
 
-def observer_page(page, records=False):
-    """Signed-in, usable observers only; every view is written to the audit log.
-    records=True: individual activity, not shown at the aggregate level."""
+def observer_page(page):
+    """Signed-in, usable observers only; every view (with its filters) is written to the audit log."""
 
     def decorator(view):
         @wraps(view)
@@ -42,10 +40,7 @@ def observer_page(page, records=False):
             if not (user.is_authenticated and user.role == Role.OBSERVER):
                 return redirect("observers:login")
             profile = user.observer_profile
-            query = {k: v for k, v in request.GET.items() if k in ("from", "to")}
-            if records and profile.level == ObserverLevel.AGGREGATE:
-                audit.log(request, "observer_view_denied", page=page, level=profile.level)
-                return render(request, "observers/not_available.html", _context(request, profile, page), status=403)
+            query = {k: v[:100] for k, v in request.GET.items() if k in ("from", "to", "q") and v}
             audit.log(request, "observer_view", page=page, level=profile.level, **query)
             return view(request, profile, *args, **kwargs)
         return wrapper
@@ -56,22 +51,6 @@ def _context(request, profile, page, **extra):
     t = text(profile.language)
     return {"t": t, "lang": profile.language, "dir": t["dir"], "profile": profile, "page": page,
             "level_label": t[f"level_{profile.level}"], **extra}
-
-
-def _period(request, profile):
-    """(period, filter context). All time unless the observer picked dates."""
-    chosen = {k: request.GET.get(k, "").strip() for k in ("from", "to")}
-    period, all_time = metrics.period_for(profile.scope, chosen["from"], chosen["to"])
-    today = timezone.localdate()
-    trial = metrics.trial_period()
-    query = urlencode({k: v for k, v in chosen.items() if v})
-    return period, {
-        "all_time": all_time,
-        "chosen_from": chosen["from"], "chosen_to": chosen["to"],
-        "query": f"?{query}" if query else "",
-        "trial_query": f"?from={trial.start}&to={trial.end}" if trial else None,
-        "last4_query": f"?from={today - datetime.timedelta(days=27)}&to={today}",
-    }
 
 
 # ── sign-in ─────────────────────────────────────────────────────────────────────
@@ -112,7 +91,7 @@ def login_view(request):
     request.session.set_expiry(settings.OBSERVER_SESSION_SECONDS)
     request.session["observer_login_at"] = time.time()
     audit.log(request, "observer_login", user=user)
-    return redirect("observers:overview")
+    return redirect("observers:dashboard")
 
 
 @require_POST
@@ -159,7 +138,9 @@ def _login_url():
     return reverse("observers:login")
 
 
-# ── labels by visibility level ──────────────────────────────────────────────────
+# ── names by visibility level ───────────────────────────────────────────────────
+# Named (the default) shows names; pseudonymised shows «عامل #12» / «منشأة #3» and no job titles;
+# aggregate shows the summary only. Phone numbers, IDs and wallets are never shown.
 
 def _business_label(profile, t, business):
     if profile.level == ObserverLevel.NAMED:
@@ -169,7 +150,7 @@ def _business_label(profile, t, business):
 
 def _worker_label(profile, t, worker):
     if worker is None:
-        return ""
+        return "—"
     if profile.level == ObserverLevel.NAMED:
         try:
             return worker.worker_profile.full_name
@@ -178,137 +159,73 @@ def _worker_label(profile, t, worker):
     return f"{t['worker_word']} #{Pseudonym.number_for(PseudonymKind.WORKER, worker.pk)}"
 
 
-def _fmt(key, value):
-    if value is None:
-        return "—"
-    return f"{value}%" if key in PERCENT_KEYS else str(value)
+def _job_title(profile, job):
+    return job.title if profile.level == ObserverLevel.NAMED else "—"
 
 
-# ── pages ───────────────────────────────────────────────────────────────────────
-
-def _chart(weeks):
-    """Bars per week: jobs by work date and payments declared (inline SVG, no scripts)."""
-    peak = max([1] + [max(w["jobs"], w["payments_declared"]) for w in weeks])
-    height, bar, gap = 120, 14, 18
-    bars = []
-    for i, w in enumerate(weeks):
-        x = 30 + i * (2 * bar + gap)
-        for j, key in enumerate(("jobs", "payments_declared")):
-            h = round(height * w[key] / peak)
-            bars.append({"x": x + j * bar, "y": 10 + height - h, "h": h, "value": w[key], "series": j})
-        bars[-1]["label_x"] = x + bar
-        bars[-1]["label"] = w["start"].strftime("%m/%d")
-    return {"bars": bars, "width": max(260, 40 + len(weeks) * (2 * bar + gap)), "height": height + 40,
-            "base_y": 10 + height}
+def _date(dt):
+    return timezone.localtime(dt).date() if isinstance(dt, datetime.datetime) else dt
 
 
-STATUS_GROUPS = [("businesses", "business"), ("jobs", "job"), ("applications", "application"),
-                 ("tasks", "task"), ("wages", "wage"), ("disputes", "dispute")]
+# ── the dashboard ───────────────────────────────────────────────────────────────
+
+def _lists(profile, t, records):
+    """Simple lists, newest first: businesses, workers, jobs, wages."""
+    st = t["statuses"]
+    businesses = [{
+        "name": _business_label(profile, t, b), "status": st["business"].get(b.verification_status, b.verification_status),
+        "registered": _date(b.user.date_joined), "jobs": b.n_jobs,
+    } for b in records.businesses().select_related("user").annotate(n_jobs=Count("job_listings", distinct=True))
+        .order_by("-user__date_joined")]
+    workers = [{
+        "name": _worker_label(profile, t, w), "status": t["verified"] if w.is_verified else t["pending"],
+        "registered": _date(w.date_joined), "tasks": w.n_tasks,
+    } for w in records.workers().select_related("worker_profile").annotate(n_tasks=Count("assignments", distinct=True))
+        .order_by("-date_joined")]
+    jobs = [{
+        "title": _job_title(profile, j), "business": _business_label(profile, t, j.business),
+        "status": st["job"].get(j.status, j.status), "work_date": j.work_date,
+        "posted": _date(j.published_at or j.created_at),
+    } for j in records.jobs().select_related("business").order_by("-work_date", "-created_at")]
+    wages = [{
+        "worker": _worker_label(profile, t, w.assignment.worker), "business": _business_label(profile, t, w.assignment.job.business),
+        "job": _job_title(profile, w.assignment.job), "amount": f"{w.amount // 100} {'₪' if w.currency == 'ILS' else w.currency}",
+        "status": st["wage"].get(w.status, w.status), "work_date": w.assignment.job.work_date,
+        "declared": _date(w.first_declared) if w.first_declared else None,
+    } for w in records.wages().select_related("assignment__job__business", "assignment__worker__worker_profile")
+        .annotate(first_declared=Min("declarations__declared_at")).order_by("-assignment__job__work_date")]
+    return {"businesses": businesses, "workers": workers, "jobs": jobs, "wages": wages}
 
 
-def _groups(t, n):
-    """The totals by status, as shown on the overview (zeros included)."""
-    groups = []
-    for key, kind in STATUS_GROUPS:
-        rows = [(t["statuses"][kind][s], c) for s, c in n[key]["by_status"].items()]
-        if key == "jobs":
-            rows.append((t["totals"]["upcoming"], n["jobs"]["upcoming"]))
-        groups.append({"title": t["groups"][key], "total": n[key]["total"], "rows": rows})
-    groups.insert(1, {"title": t["groups"]["workers"], "total": n["workers"]["total"],
-                      "rows": [(t["totals"]["verified"], n["workers"]["verified"]),
-                               (t["totals"]["pending"], n["workers"]["pending"])]})
-    return groups
+def _summary_groups(t, n):
+    st = t["statuses"]
+    jobs = [(st["job"][s], c) for s, c in n["jobs"]["by_status"].items()] + [(t["upcoming"], n["jobs"]["upcoming"])]
+    return [
+        {"title": t["groups"]["businesses"], "total": n["businesses"]["total"],
+         "rows": [(t["verified"], n["businesses"]["verified"]), (t["pending"], n["businesses"]["pending"])]},
+        {"title": t["groups"]["workers"], "total": n["workers"]["total"],
+         "rows": [(t["verified"], n["workers"]["verified"]), (t["pending"], n["workers"]["pending"])]},
+        {"title": t["groups"]["jobs"], "total": n["jobs"]["total"], "rows": jobs},
+        {"title": t["groups"]["tasks"], "total": n["tasks"]["total"],
+         "rows": [(st["task"][s], c) for s, c in n["tasks"]["by_status"].items()]},
+        {"title": t["groups"]["wages"], "total": n["wages"]["total"],
+         "rows": [(st["wage"][s], c) for s, c in n["wages"]["by_status"].items()]
+                 + [(t["payments_declared"], n["payments_declared"]), (t["receipts_confirmed"], n["receipts_confirmed"])]},
+        {"title": t["groups"]["disputes"], "total": n["disputes"]["total"],
+         "rows": [(st["dispute"][s], c) for s, c in n["disputes"]["by_status"].items()]},
+    ]
 
 
-@observer_page("overview")
-def overview(request, profile):
+@observer_page("dashboard")
+def dashboard(request, profile):
     t = text(profile.language)
-    period, filters = _period(request, profile)
-    scope = metrics.Scope(profile.scope)
-    numbers = metrics.compute(scope, period)
-    cards = [{"label": t["metrics"][k], "value": _fmt(k, numbers[k])} for k in OVERVIEW_CARDS]
-    return render(request, "observers/overview.html", _context(
-        request, profile, "overview", period=period, groups=_groups(t, numbers), cards=cards,
-        chart=_chart(metrics.weekly(scope, period)), **filters))
-
-
-@observer_page("businesses", records=True)
-def businesses(request, profile):
-    t = text(profile.language)
-    period, filters = _period(request, profile)
-    rows = [{
-        "name": _business_label(profile, t, r["business"]),
-        "status": t["statuses"]["business"].get(r["status"], r["status"]),
-        "jobs": r["jobs"], "upcoming": r["upcoming"], "days": r["work_days_completed"],
-        "same_day": _fmt("paid_same_day_pct", r["paid_same_day_pct"]),
-        "confirmed": _fmt("confirmed_by_workers_pct", r["confirmed_by_workers_pct"]),
-        "open_disputes": r["open_disputes"],
-    } for r in metrics.business_rows(profile.scope, period)]
-    return render(request, "observers/businesses.html",
-                  _context(request, profile, "businesses", period=period, rows=rows, **filters))
-
-
-@observer_page("activity", records=True)
-def activity(request, profile):
-    t = text(profile.language)
-    period, filters = _period(request, profile)
-    named = profile.level == ObserverLevel.NAMED
-    rows = []
-    for ev in metrics.activity(profile.scope, period):
-        details = []
-        if named and ev.get("job"):
-            details.append(ev["job"].title)  # free text written by the business: named level only
-        if ev["type"] == "job_posted":
-            details.append(f"{t['work_date']} {ev['job'].work_date}")
-        if ev["type"] == "payment_declared":
-            details.append(f"{ev['amount'] // 100} {'₪' if ev['currency'] == 'ILS' else ev['currency']}")
-            ref = (ev.get("reference") or "").strip()
-            if named and ref:
-                details.append(f"{t['reference']} …{ref[-4:]}")
-        if ev["type"] == "receipt_confirmed" and ev.get("automatic"):
-            details.append(t["automatic"])
-        if ev["type"].startswith("dispute_"):
-            details.append(t["categories"].get(ev["category"], ev["category"]))  # never the dispute text
-        rows.append({
-            "when": timezone.localtime(ev["at"]).strftime("%Y-%m-%d %H:%M"),
-            "event": t["events"][ev["type"]],
-            "business": _business_label(profile, t, ev["business"]),
-            "worker": _worker_label(profile, t, ev.get("worker")),
-            "details": " · ".join(details),
-        })
-    return render(request, "observers/activity.html",
-                  _context(request, profile, "activity", period=period, rows=rows, **filters))
-
-
-@observer_page("export")
-def export_csv(request, profile):
-    """Aggregate numbers only (no individual records): one row per week, then the totals by status.
-    Everything by default, the chosen dates otherwise (same rule as the pages)."""
-    period, _ = _period(request, profile)
-    scope = metrics.Scope(profile.scope)
-    response = HttpResponse(content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="wathb_{period.start or "all"}_{period.end or "all"}.csv"'
-    response.write("\ufeff")  # Excel opens UTF-8 correctly
-    writer = csv.writer(response)
-    writer.writerow(["week_start", "week_end", *metrics.WEEKLY_FIELDS])
-    for w in metrics.weekly(scope, period):
-        writer.writerow([w["start"], w["end"], *[w[f] for f in metrics.WEEKLY_FIELDS]])
-    n = metrics.compute(scope, period)
-    writer.writerow([])
-    writer.writerow(["metric", "value"])
-    writer.writerow(["period", f"{period.start or 'all'} to {period.end or 'all'}"])
-    for key in ("businesses", "jobs", "applications", "tasks", "wages", "disputes"):
-        writer.writerow([f"{key}_total", n[key]["total"]])
-        for status_value, count in n[key]["by_status"].items():
-            writer.writerow([f"{key}_{status_value.lower()}", count])
-    writer.writerow(["jobs_upcoming", n["jobs"]["upcoming"]])
-    for key in ("total", "verified", "pending"):
-        writer.writerow([f"workers_{key}", n["workers"][key]])
-    for key in ("work_days_completed", "payments_declared", "receipts_confirmed", "businesses_posted_again",
-                "paid_same_day_pct", "confirmed_by_workers_pct", "median_hours_to_payment"):
-        writer.writerow([key, _csv(n[key])])
-    return response
-
-
-def _csv(value):
-    return "" if value is None else value
+    can_search = profile.level == ObserverLevel.NAMED  # searching by name must not reveal names
+    f = metrics.filters_for(profile.scope, request.GET.get("from"), request.GET.get("to"), request.GET.get("q"),
+                            allow_search=can_search)
+    records = metrics.Records(profile.scope, f)
+    ctx = _context(request, profile, "dashboard", filters=f, can_search=can_search,
+                   filtered=bool(f.start or f.end or f.q or request.GET.get("from") or request.GET.get("to")),
+                   groups=_summary_groups(t, metrics.summary(records)))
+    if profile.level != ObserverLevel.AGGREGATE:
+        ctx["lists"] = _lists(profile, t, records)
+    return render(request, "observers/dashboard.html", ctx)

@@ -187,8 +187,6 @@ APP_APK_DOWNLOAD_URL = config("APP_APK_DOWNLOAD_URL", default="")
 SUPPORT_WHATSAPP = config("SUPPORT_WHATSAPP", default="+970000000000")
 
 # Observer dashboard (observers app): read-only web access for partners, team members and funders.
-TRIAL_START_DATE = config("TRIAL_START_DATE", default="")  # YYYY-MM-DD; default period of the dashboard
-TRIAL_END_DATE = config("TRIAL_END_DATE", default="")      # (falls back to the last 8 weeks when unset)
 OBSERVER_BASE_URL = config("OBSERVER_BASE_URL", default="https://wathb-api2.onrender.com")
 OBSERVER_LINK_TIMEOUT_SECONDS = 48 * 3600   # one-time set-password link
 OBSERVER_SESSION_SECONDS = 4 * 3600         # observers sign in again after 4 hours

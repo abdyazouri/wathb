@@ -40,7 +40,7 @@ class ObserverProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="observer_profile")
     display_name = models.CharField(max_length=200)
     organisation = models.CharField(max_length=200, help_text="e.g. «Tech for Palestine», «Wathb team».")
-    level = models.CharField(max_length=20, choices=ObserverLevel.choices, default=ObserverLevel.AGGREGATE)
+    level = models.CharField(max_length=20, choices=ObserverLevel.choices, default=ObserverLevel.NAMED)
     language = models.CharField(max_length=2, choices=ObserverLanguage.choices, default=ObserverLanguage.ARABIC)
     scope = models.ForeignKey(ObserverScope, on_delete=models.PROTECT, related_name="observers")
     expires_at = models.DateField(help_text="Last day the account works (Gaza time).")

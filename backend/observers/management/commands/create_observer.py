@@ -20,7 +20,7 @@ class Command(BaseCommand):
         parser.add_argument("--name", required=True)
         parser.add_argument("--org", required=True, help='e.g. "Tech for Palestine"')
         parser.add_argument("--email", required=True, help="The observer signs in with this email.")
-        parser.add_argument("--level", required=True, choices=ObserverLevel.values)
+        parser.add_argument("--level", default=ObserverLevel.NAMED, choices=ObserverLevel.values)
         parser.add_argument("--lang", default="ar", choices=ObserverLanguage.values)
         parser.add_argument("--expires", required=True, type=_date, help="Last day the account works, YYYY-MM-DD.")
         parser.add_argument("--businesses", default="", help="Comma-separated business profile IDs (default: all).")

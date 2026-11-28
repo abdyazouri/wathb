@@ -1,0 +1,54 @@
+{% extends "observers/base.html" %}
+{% block content %}
+<form class="filter" method="get">
+  <label>{{ t.from }}<input type="date" name="from" value="{{ filters.start|date:'Y-m-d' }}"></label>
+  <label>{{ t.to }}<input type="date" name="to" value="{{ filters.end|date:'Y-m-d' }}"></label>
+  {% if can_search %}<label>{{ t.search }}<input type="search" name="q" value="{{ filters.q }}" placeholder="{{ t.search_hint }}"></label>{% endif %}
+  <button class="btn" type="submit">{{ t.apply }}</button>
+  {% if filtered %}<a class="clear" href="?">{{ t.clear }}</a>{% endif %}
+</form>
+<div class="meta">
+  {% if filtered %}
+    {% if filters.start %}{{ t.from }} <bdi dir="ltr">{{ filters.start|date:'Y-m-d' }}</bdi>{% endif %}
+    {% if filters.end %}{{ t.to_word }} <bdi dir="ltr">{{ filters.end|date:'Y-m-d' }}</bdi>{% endif %}
+    {% if filters.q %}· {{ t.search }}: «{{ filters.q }}»{% endif %}
+  {% else %}{{ t.everything }}{% endif %}
+  · {{ t.level }}: {{ level_label }}
+</div>
+
+<h1>{{ t.summary }}</h1>
+<div class="groups">
+  {% for g in groups %}
+  <div class="card group">
+    <div class="gh"><span class="gt">{{ g.title }}</span><span class="v"><bdi>{{ g.total }}</bdi></span></div>
+    <table class="st">{% for label, count in g.rows %}<tr><td>{{ label }}</td><td class="n"><bdi>{{ count }}</bdi></td></tr>{% endfor %}</table>
+  </div>
+  {% endfor %}
+</div>
+
+{% if lists %}
+<h2>{{ t.groups.businesses }} <span class="c">({{ lists.businesses|length }})</span></h2>
+<div class="panel">{% if lists.businesses %}<table>
+  <thead><tr><th>{{ t.name }}</th><th>{{ t.status }}</th><th>{{ t.registered }}</th><th>{{ t.groups.jobs }}</th></tr></thead>
+  <tbody>{% for r in lists.businesses %}<tr><td>{{ r.name }}</td><td>{{ r.status }}</td><td><bdi dir="ltr">{{ r.registered|date:'Y-m-d' }}</bdi></td><td>{{ r.jobs }}</td></tr>{% endfor %}</tbody>
+</table>{% else %}<div class="empty">{{ t.empty }}</div>{% endif %}</div>
+
+<h2>{{ t.groups.workers }} <span class="c">({{ lists.workers|length }})</span></h2>
+<div class="panel">{% if lists.workers %}<table>
+  <thead><tr><th>{{ t.name }}</th><th>{{ t.status }}</th><th>{{ t.registered }}</th><th>{{ t.groups.tasks }}</th></tr></thead>
+  <tbody>{% for r in lists.workers %}<tr><td>{{ r.name }}</td><td>{{ r.status }}</td><td><bdi dir="ltr">{{ r.registered|date:'Y-m-d' }}</bdi></td><td>{{ r.tasks }}</td></tr>{% endfor %}</tbody>
+</table>{% else %}<div class="empty">{{ t.empty }}</div>{% endif %}</div>
+
+<h2>{{ t.groups.jobs }} <span class="c">({{ lists.jobs|length }})</span></h2>
+<div class="panel">{% if lists.jobs %}<table>
+  <thead><tr><th>{{ t.job }}</th><th>{{ t.business }}</th><th>{{ t.status }}</th><th>{{ t.work_date }}</th><th>{{ t.posted }}</th></tr></thead>
+  <tbody>{% for r in lists.jobs %}<tr><td class="wrap">{{ r.title }}</td><td>{{ r.business }}</td><td>{{ r.status }}</td><td><bdi dir="ltr">{{ r.work_date|date:'Y-m-d' }}</bdi></td><td><bdi dir="ltr">{{ r.posted|date:'Y-m-d' }}</bdi></td></tr>{% endfor %}</tbody>
+</table>{% else %}<div class="empty">{{ t.empty }}</div>{% endif %}</div>
+
+<h2>{{ t.groups.wages }} <span class="c">({{ lists.wages|length }})</span></h2>
+<div class="panel">{% if lists.wages %}<table>
+  <thead><tr><th>{{ t.worker }}</th><th>{{ t.business }}</th><th>{{ t.job }}</th><th>{{ t.amount }}</th><th>{{ t.status }}</th><th>{{ t.work_date }}</th><th>{{ t.declared }}</th></tr></thead>
+  <tbody>{% for r in lists.wages %}<tr><td>{{ r.worker }}</td><td>{{ r.business }}</td><td class="wrap">{{ r.job }}</td><td><bdi>{{ r.amount }}</bdi></td><td>{{ r.status }}</td><td><bdi dir="ltr">{{ r.work_date|date:'Y-m-d' }}</bdi></td><td><bdi dir="ltr">{% if r.declared %}{{ r.declared|date:'Y-m-d' }}{% else %}—{% endif %}</bdi></td></tr>{% endfor %}</tbody>
+</table>{% else %}<div class="empty">{{ t.empty }}</div>{% endif %}</div>
+{% endif %}
+{% endblock %}

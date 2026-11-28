@@ -81,7 +81,6 @@ def make_paid_task(job, worker, accepted, completed, declared, reference="", ack
     return task
 
 
-@override_settings(TRIAL_START_DATE="2026-12-01", TRIAL_END_DATE="2026-12-24")
 class ObserverTestBase(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -108,7 +107,7 @@ class ObserverTestBase(TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def make_observer(self, level=ObserverLevel.PSEUDONYMISED, lang="ar", business_ids=None, start=None, end=None,
+    def make_observer(self, level=ObserverLevel.NAMED, lang="ar", business_ids=None, start=None, end=None,
                       expires=datetime.date(2027, 3, 1), email=None):
         profile, link = create_observer(
             name="مراقب", organisation="Tech for Palestine", email=email or f"{uuid.uuid4().hex[:8]}@example.org",
@@ -124,171 +123,140 @@ class ObserverTestBase(TestCase):
         self.assertEqual(r.status_code, 302, getattr(r, "content", b"")[:300])
         return client
 
-    def pages(self, client):
-        out = {}
-        for name in ("overview", "businesses", "activity", "export"):
-            r = client.get(reverse(f"observers:{name}"))
-            out[name] = (r.status_code, r.content.decode())
-        return out
+    def dashboard(self, client, query=""):
+        r = client.get(reverse("observers:dashboard") + query)
+        return r.status_code, r.content.decode()
 
 
-class MetricsTests(ObserverTestBase):
-    def test_default_counts_everything_by_status_with_no_date_range(self):
-        profile = self.make_observer(ObserverLevel.AGGREGATE)
-        period, all_time = metrics.period_for(profile.scope)
-        self.assertTrue(all_time)
-        self.assertEqual((period.start, period.end), (None, None))
-        n = metrics.compute(metrics.Scope(profile.scope), period)
-        self.assertEqual(n["businesses"]["total"], 2)
-        self.assertEqual(n["businesses"]["by_status"]["APPROVED"], 2)
-        self.assertEqual((n["workers"]["total"], n["workers"]["verified"], n["workers"]["pending"]), (2, 0, 2))
+def summary_for(profile, start=None, end=None, q=""):
+    f = metrics.filters_for(profile.scope, start, end, q)
+    return metrics.summary(metrics.Records(profile.scope, f))
+
+
+class SummaryTests(ObserverTestBase):
+    def test_default_counts_everything_by_status(self):
+        n = summary_for(self.make_observer())
+        self.assertEqual(n["businesses"], {"total": 2, "verified": 2, "pending": 0})
+        self.assertEqual(n["workers"], {"total": 2, "verified": 0, "pending": 2})
         self.assertEqual(n["jobs"]["total"], 4)  # November, December and the future 9 December job
         self.assertEqual(n["jobs"]["by_status"]["FILLED"], 4)
         self.assertEqual(n["jobs"]["upcoming"], 1)
-        self.assertEqual(sum(n["jobs"]["by_status"].values()), n["jobs"]["total"])
-        self.assertEqual(n["applications"]["by_status"]["ACCEPTED"], 2)
-        self.assertEqual(n["tasks"]["by_status"]["COMPLETED"], 2)
+        self.assertEqual(sum(n["jobs"]["by_status"].values()), 4)
+        self.assertEqual((n["tasks"]["total"], n["tasks"]["by_status"]["COMPLETED"]), (2, 2))
         self.assertEqual((n["wages"]["by_status"]["VERIFIED_PAID"], n["wages"]["by_status"]["AWAITING_ACK"]), (1, 1))
+        self.assertEqual((n["payments_declared"], n["receipts_confirmed"]), (2, 1))
         self.assertEqual((n["disputes"]["total"], n["disputes"]["by_status"]["OPEN"]), (1, 1))
-        self.assertEqual((n["work_days_completed"], n["payments_declared"], n["receipts_confirmed"]), (2, 2, 1))
-        self.assertEqual(n["businesses_posted_again"], 1)
-        self.assertEqual((n["paid_same_day_pct"], n["confirmed_by_workers_pct"]), (50, 50))
-        self.assertEqual(n["median_hours_to_payment"], 10.5)
 
-    def test_dates_filter_only_when_picked(self):
-        profile = self.make_observer(ObserverLevel.AGGREGATE)
-        period, all_time = metrics.period_for(profile.scope, "2026-12-01", "2026-12-24")
-        self.assertFalse(all_time)
-        n = metrics.compute(metrics.Scope(profile.scope), period)
-        self.assertEqual(n["jobs"]["total"], 3)  # by work date; the 21 November job is out
-        self.assertEqual(n["businesses_posted_again"], 1)
-        # Either date alone.
-        self.assertEqual(metrics.period_for(profile.scope, "2026-12-08")[0], metrics.Period(datetime.date(2026, 12, 8)))
-        later = metrics.compute(metrics.Scope(profile.scope), metrics.period_for(profile.scope, "2026-12-08")[0])
-        self.assertEqual(later["jobs"]["total"], 1)  # only the future 9 December job
+    def test_dates_filter_each_record_by_its_own_date(self):
+        profile = self.make_observer()
+        self.assertEqual(summary_for(profile, "2026-12-01", "2026-12-24")["jobs"]["total"], 3)  # by work date
+        self.assertEqual(summary_for(profile, "2026-12-08")["jobs"]["total"], 1)  # only the future job
+        self.assertEqual(summary_for(profile, None, "2026-11-30")["jobs"]["total"], 1)
 
-    def test_test_businesses_count_like_any_other(self):
+    def test_search_by_business_worker_or_job_title(self):
+        profile = self.make_observer()
+        by_business = summary_for(profile, q="مخبز السعادة")
+        self.assertEqual((by_business["businesses"]["total"], by_business["jobs"]["total"],
+                          by_business["wages"]["total"]), (1, 3, 1))
+        by_worker = summary_for(profile, q="ليلى")
+        self.assertEqual((by_worker["workers"]["total"], by_worker["tasks"]["total"], by_worker["jobs"]["total"],
+                          by_worker["disputes"]["total"]), (1, 1, 1, 1))
+        self.assertEqual(summary_for(profile, q="قطف")["jobs"]["total"], 1)
+
+    def test_is_test_has_no_effect(self):
         BusinessProfile.objects.filter(pk=self.biz_b.pk).update(is_test=True)
-        profile = self.make_observer(ObserverLevel.NAMED)
-        n = metrics.compute(metrics.Scope(profile.scope), metrics.Period())
+        n = summary_for(self.make_observer())
         self.assertEqual((n["businesses"]["total"], n["jobs"]["total"], n["disputes"]["total"]), (2, 4, 1))
-        self.assertIn("مزرعة الخير", self.signed_in(profile).get(reverse("observers:businesses")).content.decode())
-
-    @override_settings(TRIAL_START_DATE="", TRIAL_END_DATE="")
-    def test_trial_quick_filter_only_when_the_dates_are_set(self):
-        self.assertIsNone(metrics.trial_period())
-        body = self.signed_in(self.make_observer()).get(reverse("observers:overview")).content.decode()
-        self.assertNotIn("فترة التجربة", body)
 
 
-class VisibilityTests(ObserverTestBase):
-    def assert_never_leaks(self, pages):
-        for name, (_, body) in pages.items():
-            for phone in PHONES:
-                self.assertNotIn(phone, body, f"phone {phone} on {name}")
-            self.assertNotIn(DISPUTE_TEXT, body, name)
-            self.assertNotIn(FULL_REFERENCE, body, name)
-            self.assertNotIn("a" * 64, body, name)  # national ID hash
+class DashboardTests(ObserverTestBase):
+    def assert_never_leaks(self, body):
+        for phone in PHONES:
+            self.assertNotIn(phone, body)
+        self.assertNotIn(DISPUTE_TEXT, body)
+        self.assertNotIn(FULL_REFERENCE, body)
+        self.assertNotIn("7766", body)
+        self.assertNotIn("a" * 64, body)  # national ID hash
 
-    def test_aggregate_sees_numbers_only(self):
-        pages = self.pages(self.signed_in(self.make_observer(ObserverLevel.AGGREGATE)))
-        self.assertEqual(pages["overview"][0], 200)
-        self.assertEqual(pages["businesses"][0], 403)
-        self.assertEqual(pages["activity"][0], 403)
-        self.assertEqual(pages["export"][0], 200)
-        for _, body in pages.values():
-            for secret in ("مخبز السعادة", "مزرعة الخير", "سامي الأحمد", "ليلى حسن", "عامل #", "منشأة #"):
-                self.assertNotIn(secret, body)
-        self.assert_never_leaks(pages)
-
-    def test_pseudonymised_shows_numbers_instead_of_names(self):
-        pages = self.pages(self.signed_in(self.make_observer(ObserverLevel.PSEUDONYMISED)))
-        for name in ("businesses", "activity"):
-            status, body = pages[name]
-            self.assertEqual(status, 200)
-            self.assertIn("منشأة #", body)
-            for secret in ("مخبز السعادة", "مزرعة الخير", "سامي الأحمد", "ليلى حسن", "خبّاز صباحي", "…7766"):
-                self.assertNotIn(secret, body, name)
-        self.assertIn("عامل #", pages["activity"][1])
-        self.assertIn("لم يُستلم الأجر", pages["activity"][1])  # the category, never the text
-        self.assert_never_leaks(pages)
-
-    def test_named_shows_names_but_no_phones(self):
-        pages = self.pages(self.signed_in(self.make_observer(ObserverLevel.NAMED, lang="en")))
-        body = pages["activity"][1]
-        for name in ("مخبز السعادة", "مزرعة الخير", "سامي الأحمد", "ليلى حسن"):
+    def test_named_by_default_shows_names_and_lists_but_never_phones(self):
+        status, body = self.dashboard(self.signed_in(self.make_observer()))
+        self.assertEqual(status, 200)
+        for name in ("مخبز السعادة", "مزرعة الخير", "سامي الأحمد", "ليلى حسن", "قطف زيتون"):
             self.assertIn(name, body)
-        self.assertIn("…7766", body)  # last 4 digits of the Jawwal Pay reference at most
-        self.assertIn("Wage not received", body)
-        self.assertIn('dir="ltr"', pages["overview"][1])
-        self.assert_never_leaks(pages)
+        self.assertIn("كل البيانات", body)
+        self.assertIn('name="q"', body)
+        self.assert_never_leaks(body)
 
-    def test_csv_has_aggregates_only_and_everything_by_default(self):
-        client = self.signed_in(self.make_observer(ObserverLevel.NAMED))
-        body = client.get(reverse("observers:export")).content.decode().lstrip("\ufeff")
-        lines = body.strip().splitlines()
-        self.assertTrue(lines[0].startswith("week_start,week_end,jobs,applications,tasks"))
-        for expected in ("period,all to all", "businesses_total,2", "jobs_total,4", "jobs_filled,4", "jobs_upcoming,1",
-                         "workers_total,2", "wages_verified_paid,1", "disputes_open,1", "paid_same_day_pct,50"):
-            self.assertIn(expected, lines)
-        for secret in ("مخبز", "مزرعة", "سامي", "ليلى", "7766"):
-            self.assertNotIn(secret, body)
-        filtered = client.get(reverse("observers:export") + "?from=2026-12-01&to=2026-12-24").content.decode()
-        self.assertIn("jobs_total,3", filtered.splitlines())
-        self.assertIn("period,2026-12-01 to 2026-12-24", filtered.splitlines())
+    def test_every_business_and_future_jobs_are_listed(self):
+        make_business("+970599111005", "منشأة سجّلت اليوم", "0599111009")
+        _, body = self.dashboard(self.signed_in(self.make_observer()))
+        self.assertIn("منشأة سجّلت اليوم", body)  # no jobs yet
+        self.assertIn("2026-12-09", body)  # a job dated after today
 
-    def test_every_business_and_every_event(self):
-        make_business("+970599111005", "منشأة جديدة بلا وظائف", "0599111009")
-        client = self.signed_in(self.make_observer(ObserverLevel.NAMED))
-        self.assertIn("منشأة جديدة بلا وظائف", client.get(reverse("observers:businesses")).content.decode())
-        activity = client.get(reverse("observers:activity")).content.decode()
-        self.assertIn("سجّلت منشأة", activity)
-        self.assertIn("يوم العمل 2026-12-09", activity)  # a job posted for a future work date
-
-    def test_date_filter_controls(self):
+    def test_filter_bar_without_quick_buttons(self):
         client = self.signed_in(self.make_observer())
-        body = client.get(reverse("observers:overview")).content.decode()
-        self.assertIn("كل الفترة", body)
-        self.assertIn('name="from" value=""', body)
-        self.assertIn('href="?from=2026-12-01&amp;to=2026-12-24"', body)  # trial period
-        self.assertIn('href="?from=2026-11-08&amp;to=2026-12-05"', body)  # last 4 weeks
-        self.assertNotIn("مسح التواريخ", body)
-        body = client.get(reverse("observers:overview") + "?from=2026-12-01").content.decode()
-        self.assertIn("مسح التواريخ", body)
-        self.assertIn('name="from" value="2026-12-01"', body)
-        self.assertIn('export.csv?from=2026-12-01"', body)
+        _, body = self.dashboard(client)
+        for gone in ("كل الفترة", "فترة التجربة", "آخر ٤ أسابيع"):
+            self.assertNotIn(gone, body)
+        self.assertNotIn('href="?">مسح', body)
+        _, body = self.dashboard(client, "?from=2026-12-08&q=تنظيف")
+        self.assertIn('href="?">مسح', body)
+        self.assertIn('value="تنظيف"', body)
+        self.assertIn("تنظيف المخبز", body)
+        self.assertNotIn("قطف زيتون", body)
+
+    def test_pseudonymised_level_still_hides_names(self):
+        _, body = self.dashboard(self.signed_in(self.make_observer(ObserverLevel.PSEUDONYMISED, lang="en")))
+        self.assertIn("Business #", body)
+        self.assertIn("Worker #", body)
+        for secret in ("مخبز السعادة", "مزرعة الخير", "سامي الأحمد", "ليلى حسن", "قطف زيتون"):
+            self.assertNotIn(secret, body)
+        self.assertNotIn('name="q"', body)  # searching by name would reveal names
+        self.assert_never_leaks(body)
+
+    def test_aggregate_level_shows_the_summary_only(self):
+        _, body = self.dashboard(self.signed_in(self.make_observer(ObserverLevel.AGGREGATE)))
+        self.assertIn("الملخّص", body)
+        for secret in ("مخبز السعادة", "سامي الأحمد", "منشأة #", "عامل #"):
+            self.assertNotIn(secret, body)
+
+    def test_new_and_existing_observers_are_named(self):
+        import importlib
+        from django.apps import apps as django_apps
+        call_command("create_observer", "--name", "N", "--org", "T4P", "--email", "n@example.org",
+                     "--expires", "2027-03-01", stdout=io.StringIO())
+        self.assertEqual(ObserverProfile.objects.get(user__email="n@example.org").level, ObserverLevel.NAMED)
+        old = self.make_observer(ObserverLevel.PSEUDONYMISED)
+        importlib.import_module("observers.migrations.0002_named_by_default").switch_to_named(django_apps, None)
+        old.refresh_from_db()
+        self.assertEqual(old.level, ObserverLevel.NAMED)
 
     def test_pseudonyms_are_random_stored_once_and_shared(self):
-        self.pages(self.signed_in(self.make_observer(ObserverLevel.PSEUDONYMISED)))
+        self.dashboard(self.signed_in(self.make_observer(ObserverLevel.PSEUDONYMISED)))
         first = dict(Pseudonym.objects.filter(kind=PseudonymKind.BUSINESS).values_list("object_id", "number"))
-        self.pages(self.signed_in(self.make_observer(ObserverLevel.PSEUDONYMISED)))
+        self.dashboard(self.signed_in(self.make_observer(ObserverLevel.PSEUDONYMISED)))
         again = dict(Pseudonym.objects.filter(kind=PseudonymKind.BUSINESS).values_list("object_id", "number"))
         self.assertEqual(first, again)
         self.assertEqual(set(first), {str(self.biz_a.pk), str(self.biz_b.pk)})
-        self.assertEqual(len(set(first.values())), 2)
 
 
 class ScopeTests(ObserverTestBase):
     def test_business_scope(self):
-        profile = self.make_observer(ObserverLevel.NAMED, business_ids=[self.biz_b.pk])
-        n = metrics.compute(metrics.Scope(profile.scope), metrics.period_for(profile.scope)[0])
-        self.assertEqual((n["businesses"]["total"], n["jobs"]["total"], n["work_days_completed"],
-                          n["disputes"]["total"], n["workers"]["total"]), (1, 1, 1, 1, 1))
-        pages = self.pages(self.signed_in(profile))
-        self.assertIn("مزرعة الخير", pages["businesses"][1])
-        self.assertNotIn("مخبز السعادة", pages["businesses"][1])
-        self.assertNotIn("مخبز السعادة", pages["activity"][1])
+        profile = self.make_observer(business_ids=[self.biz_b.pk])
+        n = summary_for(profile)
+        self.assertEqual((n["businesses"]["total"], n["jobs"]["total"], n["disputes"]["total"], n["workers"]["total"]),
+                         (1, 1, 1, 1))
+        _, body = self.dashboard(self.signed_in(profile))
+        self.assertIn("مزرعة الخير", body)
+        self.assertNotIn("مخبز السعادة", body)
 
-    def test_date_scope_clips_the_requested_period(self):
-        profile = self.make_observer(ObserverLevel.AGGREGATE, start=datetime.date(2026, 12, 3))
-        period, _ = metrics.period_for(profile.scope, "2026-11-01", "2026-12-24")
-        self.assertEqual(period.start, datetime.date(2026, 12, 3))
-        self.assertEqual(metrics.period_for(profile.scope)[0], metrics.Period(datetime.date(2026, 12, 3)))  # no picks too
-        n = metrics.compute(metrics.Scope(profile.scope), metrics.period_for(profile.scope)[0])
-        self.assertEqual(n["jobs"]["total"], 2)  # work dates 3 and 9 December
-        client = self.signed_in(profile)
-        body = client.get(reverse("observers:overview") + "?from=2026-11-01").content.decode()
-        self.assertIn("2026-12-03", body)
+    def test_scope_dates_limit_whatever_is_picked(self):
+        profile = self.make_observer(start=datetime.date(2026, 12, 3))
+        f = metrics.filters_for(profile.scope, "2026-11-01", "2026-12-24")
+        self.assertEqual(f.start, datetime.date(2026, 12, 3))
+        self.assertEqual(summary_for(profile)["jobs"]["total"], 2)  # work dates 3 and 9 December
+        _, body = self.dashboard(self.signed_in(profile), "?from=2026-11-01")
+        self.assertIn('value="2026-12-03"', body)
 
 
 class AccessTests(ObserverTestBase):
@@ -301,9 +269,8 @@ class AccessTests(ObserverTestBase):
         profile = self.make_observer()
         client = self.signed_in(profile)
         User.objects.filter(pk=profile.user.pk).update(is_active=False)
-        r = client.get(reverse("observers:overview"))
+        r = client.get(reverse("observers:dashboard"))
         self.assertRedirects(r, reverse("observers:login"), fetch_redirect_response=False)
-        self.assertEqual(client.get(reverse("observers:activity")).status_code, 302)
         r = self.client.post(reverse("observers:login"), {"email": profile.user.email, "password": PASSWORD})
         self.assertEqual(r.status_code, 401)
 
@@ -311,17 +278,17 @@ class AccessTests(ObserverTestBase):
         profile = self.make_observer()
         client = self.signed_in(profile)
         ObserverProfile.objects.filter(pk=profile.pk).update(expires_at=datetime.date(2026, 1, 1))
-        self.assertEqual(client.get(reverse("observers:overview")).status_code, 302)
+        self.assertEqual(client.get(reverse("observers:dashboard")).status_code, 302)
 
     def test_session_ends_after_4_hours(self):
         client = self.signed_in(self.make_observer())
         session = client.session
         session["observer_login_at"] = time.time() - 4 * 3600 - 1
         session.save()
-        self.assertEqual(client.get(reverse("observers:overview")).status_code, 302)
+        self.assertEqual(client.get(reverse("observers:dashboard")).status_code, 302)
 
     def test_dashboard_pages_carry_noindex(self):
-        r = self.signed_in(self.make_observer()).get(reverse("observers:overview"))
+        r = self.signed_in(self.make_observer()).get(reverse("observers:dashboard"))
         self.assertEqual(r["X-Robots-Tag"], "noindex, nofollow")
         self.assertIn('<meta name="robots" content="noindex, nofollow">', r.content.decode())
         self.assertEqual(self.client.get(reverse("observers:login"))["X-Robots-Tag"], "noindex, nofollow")
@@ -374,10 +341,9 @@ class ReadOnlyTests(ObserverTestBase):
 
     def test_dashboard_refuses_every_write(self):
         client = self.signed_in(self.make_observer(ObserverLevel.NAMED))
-        for name in ("overview", "businesses", "activity", "export"):
-            for method in ("post", "put", "patch", "delete"):
-                r = getattr(client, method)(reverse(f"observers:{name}"))
-                self.assertEqual(r.status_code, 403, f"{method} {name}")
+        for method in ("post", "put", "patch", "delete"):
+            r = getattr(client, method)(reverse("observers:dashboard"))
+            self.assertEqual(r.status_code, 403, method)
 
 
 class MobileAppTests(ObserverTestBase):
@@ -401,21 +367,16 @@ class MobileAppTests(ObserverTestBase):
 
 
 class AuditTests(ObserverTestBase):
-    def test_sign_in_and_every_page_view_is_audited(self):
-        profile = self.make_observer(ObserverLevel.NAMED)
+    def test_sign_in_and_every_view_with_its_filters_is_audited(self):
+        profile = self.make_observer()
         client = self.signed_in(profile)
-        self.pages(client)
+        self.dashboard(client)
+        self.dashboard(client, "?from=2026-12-01&q=مخبز")
         actions = list(AuditEvent.objects.filter(actor=profile.user).values_list("action", flat=True))
         self.assertIn("observer_login", actions)
-        self.assertEqual(actions.count("observer_view"), 4)
-        pages = set(AuditEvent.objects.filter(actor=profile.user, action="observer_view")
-                    .values_list("details__page", flat=True))
-        self.assertEqual(pages, {"overview", "businesses", "activity", "export"})
-
-    def test_denied_views_are_audited(self):
-        profile = self.make_observer(ObserverLevel.AGGREGATE)
-        self.signed_in(profile).get(reverse("observers:activity"))
-        self.assertTrue(AuditEvent.objects.filter(actor=profile.user, action="observer_view_denied").exists())
+        self.assertEqual(actions.count("observer_view"), 2)
+        filtered = AuditEvent.objects.get(actor=profile.user, action="observer_view", details__q="مخبز")
+        self.assertEqual((filtered.details["page"], filtered.details["from"]), ("dashboard", "2026-12-01"))
 
     def test_failed_sign_ins_are_audited_and_rate_limited(self):
         profile = self.make_observer()

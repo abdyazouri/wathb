@@ -19,9 +19,6 @@
   header { background: #006D6B; color: #fff; padding: 12px 16px; }
   header .row { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
   .brand { font-weight: 700; } .brand b { color: var(--gold); }
-  nav { display: flex; flex-wrap: wrap; gap: 4px; }
-  nav a { color: #fff; text-decoration: none; padding: 6px 10px; border-radius: 8px; font-size: 15px; }
-  nav a.on { background: rgba(255,255,255,.18); }
   .who { font-size: 13px; opacity: .9; display: flex; gap: 8px; align-items: center; }
   .who button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; padding: 3px 10px; cursor: pointer; font: inherit; }
   main { max-width: 1100px; margin: 0 auto; padding: 16px; }
@@ -29,12 +26,9 @@
   .meta { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
   .filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 16px; }
   .filter label { font-size: 13px; color: var(--muted); display: grid; gap: 2px; }
+  .filter input[type=search] { min-width: 220px; }
   .filter input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); }
   .clear { color: var(--teal); font-size: 14px; align-self: center; }
-  .quick { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 12px; }
-  .quick a { font-size: 13px; color: var(--teal); text-decoration: none; border: 1px solid var(--line);
-             background: var(--card); border-radius: 999px; padding: 4px 12px; }
-  .quick a.on { background: var(--teal); border-color: var(--teal); color: #fff; }
   .btn { font: inherit; background: var(--teal); color: #fff; border: 0; border-radius: 8px; padding: 7px 14px; text-decoration: none; cursor: pointer; }
   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 10px; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
@@ -46,13 +40,12 @@
   .group .v { font-size: 24px; }
   .st { width: 100%; font-size: 13px; } .st td { padding: 3px 0; border-bottom: 1px dashed var(--line); color: var(--muted); }
   .st td.n { text-align: end; color: var(--fg); font-weight: 600; }
+  h2 { font-size: 18px; margin: 22px 0 8px; } h2 .c { color: var(--muted); font-weight: 400; font-size: 15px; }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 16px; overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: start; white-space: nowrap; }
   td.wrap { white-space: normal; }
   th { color: var(--muted); font-weight: 600; }
-  .legend { display: flex; gap: 14px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-inline-end: 4px; }
   .empty { color: var(--muted); padding: 12px 0; }
   .note { color: var(--muted); font-size: 13px; margin-top: 8px; }
   .box { max-width: 380px; margin: 40px auto; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; }
@@ -69,38 +62,12 @@
 {% block body %}
 <header><div class="row">
   <div class="brand">{{ t.brand }}</div>
-  <nav>
-    <a href="{% url 'observers:overview' %}" class="{% if page == 'overview' %}on{% endif %}">{{ t.overview }}</a>
-    {% if profile.level != "aggregate" %}
-    <a href="{% url 'observers:businesses' %}" class="{% if page == 'businesses' %}on{% endif %}">{{ t.businesses }}</a>
-    <a href="{% url 'observers:activity' %}" class="{% if page == 'activity' %}on{% endif %}">{{ t.activity }}</a>
-    {% endif %}
-    <a href="{% url 'observers:export' %}{{ query }}">{{ t.export }}</a>
-  </nav>
   <form class="who" method="post" action="{% url 'observers:logout' %}">{% csrf_token %}
     <span>{{ profile.display_name }} · {{ profile.organisation }}</span>
     <button type="submit">{{ t.logout }}</button>
   </form>
 </div></header>
 <main>
-  {% if period %}
-  <form class="filter" method="get">
-    <label>{{ t.from }}<input type="date" name="from" value="{{ chosen_from }}"></label>
-    <label>{{ t.to }}<input type="date" name="to" value="{{ chosen_to }}"></label>
-    <button class="btn" type="submit">{{ t.apply }}</button>
-    {% if not all_time %}<a class="clear" href="?">{{ t.clear_dates }}</a>{% endif %}
-  </form>
-  <div class="quick">
-    <a href="?" class="{% if all_time %}on{% endif %}">{{ t.all_time }}</a>
-    {% if trial_query %}<a href="{{ trial_query }}" class="{% if query == trial_query %}on{% endif %}">{{ t.trial_period }}</a>{% endif %}
-    <a href="{{ last4_query }}" class="{% if query == last4_query %}on{% endif %}">{{ t.last_4_weeks }}</a>
-  </div>
-  <div class="meta">
-    {{ t.period }}: {% if all_time %}{{ t.all_time }}{% else %}{{ t.from }} <bdi dir="ltr">{{ period.start|date:'Y-m-d' }}</bdi> {{ t.to_word }} <bdi dir="ltr">{{ period.end|date:'Y-m-d' }}</bdi>{% endif %}
-    · {% if profile.scope.all_businesses %}{{ t.scope_all }}{% else %}{{ t.scope_some }}{% endif %}
-    · {{ t.level }}: {{ level_label }}
-  </div>
-  {% endif %}
   {% block content %}{% endblock %}
 </main>
 {% endblock %}

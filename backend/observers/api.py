@@ -48,7 +48,7 @@ class ObserverCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
     organisation = serializers.CharField(max_length=200)
     email = serializers.EmailField()
-    level = serializers.ChoiceField(choices=ObserverLevel.choices)
+    level = serializers.ChoiceField(choices=ObserverLevel.choices, default=ObserverLevel.NAMED)
     language = serializers.ChoiceField(choices=ObserverLanguage.choices, default=ObserverLanguage.ARABIC)
     expires_at = serializers.DateField()
     business_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=list,
