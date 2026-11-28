@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Role
-from accounts.permissions import IsWorker, IsBusiness, IsVerifiedBusiness
+from accounts.permissions import IsAdminRole, IsWorker, IsBusiness, IsVerifiedBusiness
 from jobs.models import PaymentMethod, JobListing, JobApplication, JobListingStatus, ApplicationStatus, JobCategory
 from jobs.serializers import (
     JobListingSerializer,
@@ -132,6 +132,62 @@ class JobPublishView(APIView):
         job.status = JobListingStatus.PUBLISHED
         job.published_at = timezone.now()
         job.save(update_fields=["status", "published_at"])
+        return Response(JobListingSerializer(job).data)
+
+
+class AdminJobPublishView(APIView):
+    """POST admin/jobs/<id>/publish/ {"expected_version": n, "reason": "..."} — an admin publishes a job on
+    behalf of its business (the owner cannot press «نشر الوظيفة» themselves).
+
+    Same rules as the business's own publish: a verified, active business, a DRAFT or PENDING_REVIEW job,
+    and approved funding for a funded job. expected_version must match, so only the terms the admin
+    confirmed with the business are published. The audit log records who published it and for whom.
+    """
+    permission_classes = [IsAdminRole]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        from accounts.models import VerificationStatus
+        from audit.models import AuditEvent
+
+        try:
+            job = JobListing.objects.select_for_update().select_related("business__user").get(pk=pk)
+        except JobListing.DoesNotExist:
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
+        expected = request.data.get("expected_version")
+        if expected is None or str(expected) != str(job.version):
+            return Response(
+                {"detail": "تغيّرت شروط الوظيفة أو لم تُحدَّد نسختها. راجع الشروط من جديد قبل النشر.",
+                 "version": job.version},
+                status=status.HTTP_409_CONFLICT,
+            )
+        business = job.business
+        if business.verification_status != VerificationStatus.APPROVED:
+            return Response({"detail": "المنشأة غير موثّقة، فلا يمكن نشر وظائفها."}, status=status.HTTP_400_BAD_REQUEST)
+        if not business.user.is_active:
+            return Response({"detail": "حساب المنشأة غير مفعّل."}, status=status.HTTP_400_BAD_REQUEST)
+        if job.status not in (JobListingStatus.DRAFT, JobListingStatus.PENDING_REVIEW):
+            return Response({"detail": f"لا يمكن نشر وظيفة حالتها «{job.get_status_display()}»."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if job.is_funded:
+            from funding.models import FundingAllocation
+            if not FundingAllocation.objects.filter(job_listing=job, status__in=["RESERVED", "ALLOCATED"]).exists():
+                return Response({"detail": "الوظيفة الممولة تحتاج تخصيص تمويل معتمد قبل النشر."},
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        previous = job.status
+        # The same path as the business's own button: DRAFT → PENDING_REVIEW → PUBLISHED.
+        if job.status == JobListingStatus.DRAFT:
+            job.status = JobListingStatus.PENDING_REVIEW
+        job.status = JobListingStatus.PUBLISHED
+        job.published_at = timezone.now()
+        job.save(update_fields=["status", "published_at"])
+        AuditEvent.objects.create(
+            actor=request.user, action="job_published_by_admin", model_name="JobListing", object_id=str(job.pk),
+            details={"on_behalf_of_business": business.pk, "previous_status": previous, "version": job.version,
+                     "reason": str(request.data.get("reason", ""))[:300]},
+            ip_address=request.META.get("REMOTE_ADDR"),
+        )
         return Response(JobListingSerializer(job).data)
 
 
