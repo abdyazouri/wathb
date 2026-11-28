@@ -210,6 +210,8 @@ struct BusinessVerifySheet: View {
                     LoadingButton(title: "تأكيد", loading: busy, color: action == "approve" ? Brand.primary : Brand.error) { submit() }
                         .disabled(needsReason && reason.isBlank)
                         .padding(.top, 8)
+
+                    AdminBusinessJobsSection(business: business)
                 }
                 .padding(20)
             }

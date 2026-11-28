@@ -1,15 +1,20 @@
 import SwiftUI
 
-/// «نشر وظيفة جديدة». Payment is always Jawwal Pay, set by the server — nothing to choose.
-struct JobCreateView: View {
-    @Environment(BusinessNav.self) private var nav
+/// The job form a business fills in. Payment is always Jawwal Pay, set by the server — nothing to choose.
+/// Shared by «نشر وظيفة جديدة» (the business) and «إضافة وظيفة نيابة عن المنشأة» (an admin).
+struct JobForm: View {
+    let buttonTitle: String
+    var footnote = "يُدفع الأجر عبر Jawwal Pay يوم العمل نفسه."
+    /// Sends the request; returns an error message to show, or nil when it worked.
+    let onSubmit: (JobCreateRequest) async -> String?
+
     @State private var title = ""
     @State private var description = ""
     @State private var city = ""
     @State private var address = ""
     @State private var workDate = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-    @State private var start = JobCreateView.time(hour: 8)
-    @State private var end = JobCreateView.time(hour: 16)
+    @State private var start = JobForm.time(hour: 8)
+    @State private var end = JobForm.time(hour: 16)
     @State private var workers = "1"
     @State private var wage = ""
     @State private var basis = "PER_DAY"
@@ -52,16 +57,14 @@ struct JobCreateView: View {
                 }
                 .pickerStyle(.segmented)
 
-                Text("يُدفع الأجر عبر Jawwal Pay يوم العمل نفسه.").font(.wathb(13)).foregroundStyle(Brand.muted)
+                Text(footnote).font(.wathb(13)).foregroundStyle(Brand.muted)
 
-                LoadingButton(title: "نشر الوظيفة", loading: busy, action: submit).padding(.top, 8)
+                LoadingButton(title: buttonTitle, loading: busy, action: submit).padding(.top, 8)
             }
             .padding(16)
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Brand.background)
-        .navigationTitle("نشر وظيفة جديدة")
-        .navigationBarTitleDisplayMode(.inline)
         .toast($toast)
     }
 
@@ -69,7 +72,7 @@ struct JobCreateView: View {
         Calendar.current.date(bySettingHour: hour, minute: 0, second: 0, of: Date()) ?? Date()
     }
 
-    /// The date and times as the user picked them on the wall clock (Gaza is the server's zone).
+    /// The date and times as picked on the wall clock (Gaza is the server's zone).
     private func format(_ date: Date, _ pattern: String) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -93,20 +96,33 @@ struct JobCreateView: View {
         busy = true
         Task {
             defer { busy = false }
+            if let message = await onSubmit(request) { toast = message }
+        }
+    }
+}
+
+/// «نشر وظيفة جديدة» for the business: creates the job, then publishes it.
+struct JobCreateView: View {
+    @Environment(BusinessNav.self) private var nav
+
+    var body: some View {
+        JobForm(buttonTitle: "نشر الوظيفة") { request in
             let draft: Job
             do { draft = try await APIClient.shared.post("jobs/", request) }
             catch let e as APIError where e.status == 403 {
-                toast = "حسابك لم يتم التحقق منه بعد. يرجى انتظار موافقة الإدارة."; return
-            } catch { toast = error.localizedDescription; return }
+                return "حسابك لم يتم التحقق منه بعد. يرجى انتظار موافقة الإدارة."
+            } catch { return error.localizedDescription }
             do {
                 _ = try await API.publish(draft.id)
                 nav.back()
+                return nil
             } catch {
                 // The draft is saved; it can be published later from «وظائفي».
-                toast = "حُفظت الوظيفة كمسودة ولم تُنشر: \(error.localizedDescription)"
-                try? await Task.sleep(for: .seconds(2))
-                nav.back()
+                Task { try? await Task.sleep(for: .seconds(2)); nav.back() }
+                return "حُفظت الوظيفة كمسودة ولم تُنشر: \(error.localizedDescription)"
             }
         }
+        .navigationTitle("نشر وظيفة جديدة")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

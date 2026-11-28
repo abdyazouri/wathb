@@ -170,6 +170,21 @@ extension API {
         try await c.patch("admin/businesses/\(id)/verify/", AdminVerifyRequest(action: action, reason: reason))
     }
 
+    /// Every job of one business (drafts included), newest first.
+    static func adminBusinessJobs(_ businessId: Int) async throws -> [Job] {
+        try await c.get("admin/businesses/\(businessId)/jobs/")
+    }
+
+    /// A draft created on behalf of the business; the server audits it and notifies the business.
+    static func adminCreateJob(_ businessId: Int, _ r: JobCreateRequest) async throws -> Job {
+        try await c.post("admin/businesses/\(businessId)/jobs/", r)
+    }
+
+    /// Publishes only the version the admin confirmed (409 if the terms changed since).
+    static func adminPublishJob(_ jobId: String, version: Int, reason: String) async throws -> Job {
+        try await c.post("admin/jobs/\(jobId)/publish/", AdminPublishRequest(expectedVersion: version, reason: reason))
+    }
+
     static func adminWorkers(verified: Bool?, search: String) async throws -> [AdminWorker] {
         var query: [String: String] = [:]
         if let verified { query["is_verified"] = verified ? "true" : "false" }

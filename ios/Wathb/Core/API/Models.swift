@@ -61,9 +61,13 @@ struct Job: Decodable, Identifiable, Hashable {
     /// "250 ILS / يوم" as the server formats it.
     let wageDisplay: String?
     let attendanceRequirements: String
+    let cancellationPolicy: String?
+    let additionalConditions: String?
     let isNew: Bool?
     let status: String
     let isFunded: Bool
+    /// Bumped on every edit; publishing on behalf sends the version the admin confirmed.
+    let version: Int?
 }
 
 struct Page<T: Decodable>: Decodable {
@@ -292,6 +296,7 @@ struct AdminBusiness: Decodable, Identifiable, Hashable {
 
 /// action: approve / reject / suspend; reason required for the last two.
 struct AdminVerifyRequest: Encodable { let action: String; let reason: String }
+struct AdminPublishRequest: Encodable { let expectedVersion: Int; let reason: String }
 
 struct AdminWorker: Decodable, Identifiable, Hashable {
     let id: Int
