@@ -27,6 +27,8 @@ class NotificationType(models.TextChoices):
     WAGE_UNPAID_3D = "WAGE_UNPAID_3D", "تذكير بدفع الأجر (٣ أيام)"
     ATTENDANCE_AUTO_CONFIRMED = "ATTENDANCE_AUTO_CONFIRMED", "تأكيد تلقائي للحضور"
     COMPLETION_AUTO_CONFIRMED = "COMPLETION_AUTO_CONFIRMED", "تأكيد تلقائي لإتمام العمل"
+    JOB_CREATED_BY_ADMIN = "JOB_CREATED_BY_ADMIN", "وظيفة أضافها المشرف نيابة عنك"
+    JOB_PUBLISHED_BY_ADMIN = "JOB_PUBLISHED_BY_ADMIN", "وظيفة نشرها المشرف نيابة عنك"
 
 
 class Notification(models.Model):

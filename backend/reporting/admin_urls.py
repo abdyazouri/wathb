@@ -5,7 +5,7 @@ from audit.views import AuditLogView
 from disputes.urls import admin_urlpatterns as dispute_admin_urls
 from funding.urls import admin_urlpatterns as funding_admin_urls
 from wages.views import AdminStaleWageListView, AdminUnpaidWageListView
-from jobs.views import AdminJobPublishView
+from jobs.views import AdminBusinessJobsView, AdminJobPublishView
 
 urlpatterns = [
     path("businesses/", AdminBusinessListView.as_view(), name="admin-business-list"),
@@ -19,4 +19,5 @@ urlpatterns = [
     path("disputes/unpaid-wages/", AdminUnpaidWageListView.as_view(), name="admin-unpaid-wages"),
     path("observers/", include("observers.api_urls")),
     path("jobs/<uuid:pk>/publish/", AdminJobPublishView.as_view(), name="admin-job-publish"),
+    path("businesses/<int:pk>/jobs/", AdminBusinessJobsView.as_view(), name="admin-business-jobs"),
 ] + dispute_admin_urls + funding_admin_urls

@@ -135,6 +135,64 @@ class JobPublishView(APIView):
         return Response(JobListingSerializer(job).data)
 
 
+def _admin_audit(request, action, job, **details):
+    from audit.models import AuditEvent
+    AuditEvent.objects.create(actor=request.user, action=action, model_name="JobListing", object_id=str(job.pk),
+                              details=details, ip_address=request.META.get("REMOTE_ADDR"))
+
+
+def _notify_business(job, notification_type, title, body):
+    """In-app notification to the business; opens the job's applicants in the app."""
+    from notifications.models import Notification
+    Notification.objects.create(recipient=job.business.user, notification_type=notification_type, title=title,
+                                body=body, related_model="JobListing", related_id=str(job.pk))
+
+
+class AdminBusinessJobsView(APIView):
+    """admin/businesses/<profile id>/jobs/ — the business's jobs (GET), or a new job on its behalf (POST).
+
+    POST uses exactly the business's own create rules: a verified, active business and the same
+    JobListingCreateSerializer validation. The job is a draft; publishing goes through
+    admin/jobs/<id>/publish/. Audited, and the business is notified in the app.
+    """
+    permission_classes = [IsAdminRole]
+
+    def _business(self, pk):
+        from accounts.models import BusinessProfile
+        try:
+            return BusinessProfile.objects.select_related("user").get(pk=pk)
+        except BusinessProfile.DoesNotExist:
+            return None
+
+    def get(self, request, pk):
+        business = self._business(pk)
+        if business is None:
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
+        jobs = JobListing.objects.filter(business=business).select_related("business").order_by("-created_at")
+        return Response(JobListingSerializer(jobs, many=True).data)
+
+    @transaction.atomic
+    def post(self, request, pk):
+        from accounts.models import VerificationStatus
+        from notifications.models import NotificationType
+
+        business = self._business(pk)
+        if business is None:
+            return Response({"detail": "غير موجود."}, status=status.HTTP_404_NOT_FOUND)
+        # Same gate as IsVerifiedBusiness on the business's own create.
+        if business.verification_status != VerificationStatus.APPROVED or not business.user.is_active:
+            return Response({"detail": "المنشأة غير موثّقة أو حسابها غير مفعّل، فلا يمكن إضافة وظائف لها."},
+                            status=status.HTTP_403_FORBIDDEN)
+        write_ser = JobListingCreateSerializer(data=request.data)
+        write_ser.is_valid(raise_exception=True)
+        job = write_ser.save(business=business)  # status DRAFT (model default)
+        _admin_audit(request, "job_created_by_admin", job, on_behalf_of_business=business.pk,
+                     note=f"created by admin on behalf of business {business.pk}")
+        _notify_business(job, NotificationType.JOB_CREATED_BY_ADMIN, f"أضاف مشرف وَثْب وظيفة باسمك: {job.title}",
+                         f"وظيفة يوم {job.work_date} محفوظة كمسودة في «وظائفي». راجعها، وتُنشر بموافقتك.")
+        return Response(JobListingSerializer(job).data, status=status.HTTP_201_CREATED)
+
+
 class AdminJobPublishView(APIView):
     """POST admin/jobs/<id>/publish/ {"expected_version": n, "reason": "..."} — an admin publishes a job on
     behalf of its business (the owner cannot press «نشر الوظيفة» themselves).
@@ -148,7 +206,6 @@ class AdminJobPublishView(APIView):
     @transaction.atomic
     def post(self, request, pk):
         from accounts.models import VerificationStatus
-        from audit.models import AuditEvent
 
         try:
             job = JobListing.objects.select_for_update().select_related("business__user").get(pk=pk)
@@ -182,12 +239,11 @@ class AdminJobPublishView(APIView):
         job.status = JobListingStatus.PUBLISHED
         job.published_at = timezone.now()
         job.save(update_fields=["status", "published_at"])
-        AuditEvent.objects.create(
-            actor=request.user, action="job_published_by_admin", model_name="JobListing", object_id=str(job.pk),
-            details={"on_behalf_of_business": business.pk, "previous_status": previous, "version": job.version,
-                     "reason": str(request.data.get("reason", ""))[:300]},
-            ip_address=request.META.get("REMOTE_ADDR"),
-        )
+        _admin_audit(request, "job_published_by_admin", job, on_behalf_of_business=business.pk,
+                     previous_status=previous, version=job.version, reason=str(request.data.get("reason", ""))[:300])
+        from notifications.models import NotificationType
+        _notify_business(job, NotificationType.JOB_PUBLISHED_BY_ADMIN, f"نشر مشرف وَثْب وظيفتك: {job.title}",
+                         f"وظيفة يوم {job.work_date} منشورة الآن ويراها العمال. تابع المتقدمين من «وظائفي».")
         return Response(JobListingSerializer(job).data)
 
 
