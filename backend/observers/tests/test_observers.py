@@ -103,8 +103,8 @@ class ObserverTestBase(TestCase):
         Dispute.objects.filter(pk=dispute.pk).update(created_at=at(5, 9))
 
     def setUp(self):
-        # The fixture lives in December 2026; "today" for the all-time default is the end of that month.
-        patcher = mock.patch("django.utils.timezone.localdate", return_value=datetime.date(2026, 12, 31))
+        # "Today" is 5 December 2026: the job on 9 December is in the future and must still count.
+        patcher = mock.patch("django.utils.timezone.localdate", return_value=datetime.date(2026, 12, 5))
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -133,53 +133,52 @@ class ObserverTestBase(TestCase):
 
 
 class MetricsTests(ObserverTestBase):
-    def test_overview_numbers_follow_the_approved_definitions(self):
+    def test_default_counts_everything_by_status_with_no_date_range(self):
+        profile = self.make_observer(ObserverLevel.AGGREGATE)
+        period, all_time = metrics.period_for(profile.scope)
+        self.assertTrue(all_time)
+        self.assertEqual((period.start, period.end), (None, None))
+        n = metrics.compute(metrics.Scope(profile.scope), period)
+        self.assertEqual(n["businesses"]["total"], 2)
+        self.assertEqual(n["businesses"]["by_status"]["APPROVED"], 2)
+        self.assertEqual((n["workers"]["total"], n["workers"]["verified"], n["workers"]["pending"]), (2, 0, 2))
+        self.assertEqual(n["jobs"]["total"], 4)  # November, December and the future 9 December job
+        self.assertEqual(n["jobs"]["by_status"]["FILLED"], 4)
+        self.assertEqual(n["jobs"]["upcoming"], 1)
+        self.assertEqual(sum(n["jobs"]["by_status"].values()), n["jobs"]["total"])
+        self.assertEqual(n["applications"]["by_status"]["ACCEPTED"], 2)
+        self.assertEqual(n["tasks"]["by_status"]["COMPLETED"], 2)
+        self.assertEqual((n["wages"]["by_status"]["VERIFIED_PAID"], n["wages"]["by_status"]["AWAITING_ACK"]), (1, 1))
+        self.assertEqual((n["disputes"]["total"], n["disputes"]["by_status"]["OPEN"]), (1, 1))
+        self.assertEqual((n["work_days_completed"], n["payments_declared"], n["receipts_confirmed"]), (2, 2, 1))
+        self.assertEqual(n["businesses_posted_again"], 1)
+        self.assertEqual((n["paid_same_day_pct"], n["confirmed_by_workers_pct"]), (50, 50))
+        self.assertEqual(n["median_hours_to_payment"], 10.5)
+
+    def test_dates_filter_only_when_picked(self):
         profile = self.make_observer(ObserverLevel.AGGREGATE)
         period, all_time = metrics.period_for(profile.scope, "2026-12-01", "2026-12-24")
         self.assertFalse(all_time)
         n = metrics.compute(metrics.Scope(profile.scope), period)
-        self.assertEqual(n["jobs_posted"], 3)  # the November job is outside the trial
+        self.assertEqual(n["jobs"]["total"], 3)  # by work date; the 21 November job is out
         self.assertEqual(n["businesses_posted_again"], 1)
-        self.assertEqual(n["offers_accepted"], 2)
-        self.assertEqual(n["work_days_completed"], 2)
-        self.assertEqual(n["wages_declared"], 2)
-        self.assertEqual((n["paid_same_day"], n["paid_same_day_pct"]), (1, 50))
-        self.assertEqual((n["confirmed_by_workers"], n["confirmed_by_workers_pct"]), (1, 50))
-        self.assertEqual(n["median_hours_to_payment"], 10.5)
-        self.assertEqual((n["workers_active"], n["businesses_active"]), (2, 2))
-        self.assertEqual((n["disputes_opened"], n["disputes_resolved"]), (1, 0))
-
-    def test_default_is_all_time_from_the_first_record_to_today(self):
-        profile = self.make_observer(ObserverLevel.AGGREGATE)
-        period, all_time = metrics.period_for(profile.scope)
-        self.assertTrue(all_time)
-        self.assertEqual((period.start, period.end), (datetime.date(2026, 11, 20), datetime.date(2026, 12, 31)))
-        self.assertEqual(metrics.compute(metrics.Scope(profile.scope), period)["jobs_posted"], 4)
         # Either date alone.
-        self.assertEqual(metrics.period_for(profile.scope, "2026-12-08")[0].start, datetime.date(2026, 12, 8))
-        self.assertEqual(metrics.period_for(profile.scope, None, "2026-12-02")[0],
-                         metrics.Period(datetime.date(2026, 11, 20), datetime.date(2026, 12, 2)))
+        self.assertEqual(metrics.period_for(profile.scope, "2026-12-08")[0], metrics.Period(datetime.date(2026, 12, 8)))
+        later = metrics.compute(metrics.Scope(profile.scope), metrics.period_for(profile.scope, "2026-12-08")[0])
+        self.assertEqual(later["jobs"]["total"], 1)  # only the future 9 December job
+
+    def test_test_businesses_count_like_any_other(self):
+        BusinessProfile.objects.filter(pk=self.biz_b.pk).update(is_test=True)
+        profile = self.make_observer(ObserverLevel.NAMED)
+        n = metrics.compute(metrics.Scope(profile.scope), metrics.Period())
+        self.assertEqual((n["businesses"]["total"], n["jobs"]["total"], n["disputes"]["total"]), (2, 4, 1))
+        self.assertIn("مزرعة الخير", self.signed_in(profile).get(reverse("observers:businesses")).content.decode())
 
     @override_settings(TRIAL_START_DATE="", TRIAL_END_DATE="")
     def test_trial_quick_filter_only_when_the_dates_are_set(self):
         self.assertIsNone(metrics.trial_period())
         body = self.signed_in(self.make_observer()).get(reverse("observers:overview")).content.decode()
         self.assertNotIn("فترة التجربة", body)
-
-    def test_test_businesses_never_count(self):
-        BusinessProfile.objects.filter(pk=self.biz_b.pk).update(is_test=True)
-        profile = self.make_observer(ObserverLevel.NAMED)
-        period, _ = metrics.period_for(profile.scope)
-        n = metrics.compute(metrics.Scope(profile.scope), period)
-        self.assertEqual((n["jobs_posted"], n["work_days_completed"], n["disputes_opened"]), (3, 1, 0))
-        pages = self.pages(self.signed_in(profile))
-        for name in ("businesses", "activity"):
-            self.assertNotIn("مزرعة الخير", pages[name][1], name)
-        self.assertNotIn("ليلى حسن", pages["activity"][1])
-        # Even a scope that names the test business shows nothing of it.
-        only_test = self.make_observer(ObserverLevel.NAMED, business_ids=[self.biz_b.pk])
-        n = metrics.compute(metrics.Scope(only_test.scope), metrics.period_for(only_test.scope)[0])
-        self.assertEqual((n["jobs_posted"], n["wages_declared"]), (0, 0))
 
 
 class VisibilityTests(ObserverTestBase):
@@ -224,22 +223,27 @@ class VisibilityTests(ObserverTestBase):
         self.assertIn('dir="ltr"', pages["overview"][1])
         self.assert_never_leaks(pages)
 
-    def test_csv_has_weekly_aggregates_only(self):
+    def test_csv_has_aggregates_only_and_everything_by_default(self):
         client = self.signed_in(self.make_observer(ObserverLevel.NAMED))
-        r = client.get(reverse("observers:export") + "?from=2026-12-01&to=2026-12-24")
-        status, body = r.status_code, r.content.decode()
-        self.assertEqual(status, 200)
-        lines = body.lstrip("﻿").strip().splitlines()
-        self.assertTrue(lines[0].startswith("week_start,week_end,jobs_posted"))
-        self.assertIn("businesses_posted_again", lines[0])
-        self.assertEqual(len(lines), 1 + 4 + 1)  # header, four weeks of Dec 1–24, the period row
-        self.assertTrue(lines[-1].startswith("2026-12-01,2026-12-24,3,"))
-        self.assertTrue(lines[-1].endswith(",1"))  # one business posted again
+        body = client.get(reverse("observers:export")).content.decode().lstrip("\ufeff")
+        lines = body.strip().splitlines()
+        self.assertTrue(lines[0].startswith("week_start,week_end,jobs,applications,tasks"))
+        for expected in ("period,all to all", "businesses_total,2", "jobs_total,4", "jobs_filled,4", "jobs_upcoming,1",
+                         "workers_total,2", "wages_verified_paid,1", "disputes_open,1", "paid_same_day_pct,50"):
+            self.assertIn(expected, lines)
         for secret in ("مخبز", "مزرعة", "سامي", "ليلى", "7766"):
             self.assertNotIn(secret, body)
-        # Default: all time, from the first record (Nov 20) to today.
-        lines = client.get(reverse("observers:export")).content.decode().lstrip("\ufeff").strip().splitlines()
-        self.assertTrue(lines[-1].startswith("2026-11-20,2026-12-31,4,"), lines[-1])
+        filtered = client.get(reverse("observers:export") + "?from=2026-12-01&to=2026-12-24").content.decode()
+        self.assertIn("jobs_total,3", filtered.splitlines())
+        self.assertIn("period,2026-12-01 to 2026-12-24", filtered.splitlines())
+
+    def test_every_business_and_every_event(self):
+        make_business("+970599111005", "منشأة جديدة بلا وظائف", "0599111009")
+        client = self.signed_in(self.make_observer(ObserverLevel.NAMED))
+        self.assertIn("منشأة جديدة بلا وظائف", client.get(reverse("observers:businesses")).content.decode())
+        activity = client.get(reverse("observers:activity")).content.decode()
+        self.assertIn("سجّلت منشأة", activity)
+        self.assertIn("يوم العمل 2026-12-09", activity)  # a job posted for a future work date
 
     def test_date_filter_controls(self):
         client = self.signed_in(self.make_observer())
@@ -247,7 +251,7 @@ class VisibilityTests(ObserverTestBase):
         self.assertIn("كل الفترة", body)
         self.assertIn('name="from" value=""', body)
         self.assertIn('href="?from=2026-12-01&amp;to=2026-12-24"', body)  # trial period
-        self.assertIn('href="?from=2026-12-04&amp;to=2026-12-31"', body)  # last 4 weeks
+        self.assertIn('href="?from=2026-11-08&amp;to=2026-12-05"', body)  # last 4 weeks
         self.assertNotIn("مسح التواريخ", body)
         body = client.get(reverse("observers:overview") + "?from=2026-12-01").content.decode()
         self.assertIn("مسح التواريخ", body)
@@ -268,7 +272,8 @@ class ScopeTests(ObserverTestBase):
     def test_business_scope(self):
         profile = self.make_observer(ObserverLevel.NAMED, business_ids=[self.biz_b.pk])
         n = metrics.compute(metrics.Scope(profile.scope), metrics.period_for(profile.scope)[0])
-        self.assertEqual((n["jobs_posted"], n["work_days_completed"], n["disputes_opened"]), (1, 1, 1))
+        self.assertEqual((n["businesses"]["total"], n["jobs"]["total"], n["work_days_completed"],
+                          n["disputes"]["total"], n["workers"]["total"]), (1, 1, 1, 1, 1))
         pages = self.pages(self.signed_in(profile))
         self.assertIn("مزرعة الخير", pages["businesses"][1])
         self.assertNotIn("مخبز السعادة", pages["businesses"][1])
@@ -278,9 +283,9 @@ class ScopeTests(ObserverTestBase):
         profile = self.make_observer(ObserverLevel.AGGREGATE, start=datetime.date(2026, 12, 3))
         period, _ = metrics.period_for(profile.scope, "2026-11-01", "2026-12-24")
         self.assertEqual(period.start, datetime.date(2026, 12, 3))
-        self.assertEqual(metrics.period_for(profile.scope)[0].start, datetime.date(2026, 12, 3))  # all time too
-        n = metrics.compute(metrics.Scope(profile.scope), period)
-        self.assertEqual(n["jobs_posted"], 1)  # only the Dec 8 job; Dec 1 and Dec 2 are outside
+        self.assertEqual(metrics.period_for(profile.scope)[0], metrics.Period(datetime.date(2026, 12, 3)))  # no picks too
+        n = metrics.compute(metrics.Scope(profile.scope), metrics.period_for(profile.scope)[0])
+        self.assertEqual(n["jobs"]["total"], 2)  # work dates 3 and 9 December
         client = self.signed_in(profile)
         body = client.get(reverse("observers:overview") + "?from=2026-11-01").content.decode()
         self.assertIn("2026-12-03", body)

@@ -40,6 +40,12 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
   .card .v { font-size: 26px; font-weight: 700; color: var(--teal); }
   .card .l { font-size: 13px; color: var(--muted); }
+  .groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .group .gh { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .group .gt { font-weight: 700; }
+  .group .v { font-size: 24px; }
+  .st { width: 100%; font-size: 13px; } .st td { padding: 3px 0; border-bottom: 1px dashed var(--line); color: var(--muted); }
+  .st td.n { text-align: end; color: var(--fg); font-weight: 600; }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 16px; overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: start; white-space: nowrap; }

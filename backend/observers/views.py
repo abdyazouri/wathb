@@ -187,13 +187,13 @@ def _fmt(key, value):
 # ── pages ───────────────────────────────────────────────────────────────────────
 
 def _chart(weeks):
-    """Bars per week for work days completed and wages declared (inline SVG, no scripts)."""
-    peak = max([1] + [max(w["work_days_completed"], w["wages_declared"]) for w in weeks])
+    """Bars per week: jobs by work date and payments declared (inline SVG, no scripts)."""
+    peak = max([1] + [max(w["jobs"], w["payments_declared"]) for w in weeks])
     height, bar, gap = 120, 14, 18
     bars = []
     for i, w in enumerate(weeks):
         x = 30 + i * (2 * bar + gap)
-        for j, key in enumerate(("work_days_completed", "wages_declared")):
+        for j, key in enumerate(("jobs", "payments_declared")):
             h = round(height * w[key] / peak)
             bars.append({"x": x + j * bar, "y": 10 + height - h, "h": h, "value": w[key], "series": j})
         bars[-1]["label_x"] = x + bar
@@ -202,16 +202,34 @@ def _chart(weeks):
             "base_y": 10 + height}
 
 
+STATUS_GROUPS = [("businesses", "business"), ("jobs", "job"), ("applications", "application"),
+                 ("tasks", "task"), ("wages", "wage"), ("disputes", "dispute")]
+
+
+def _groups(t, n):
+    """The totals by status, as shown on the overview (zeros included)."""
+    groups = []
+    for key, kind in STATUS_GROUPS:
+        rows = [(t["statuses"][kind][s], c) for s, c in n[key]["by_status"].items()]
+        if key == "jobs":
+            rows.append((t["totals"]["upcoming"], n["jobs"]["upcoming"]))
+        groups.append({"title": t["groups"][key], "total": n[key]["total"], "rows": rows})
+    groups.insert(1, {"title": t["groups"]["workers"], "total": n["workers"]["total"],
+                      "rows": [(t["totals"]["verified"], n["workers"]["verified"]),
+                               (t["totals"]["pending"], n["workers"]["pending"])]})
+    return groups
+
+
 @observer_page("overview")
 def overview(request, profile):
     t = text(profile.language)
     period, filters = _period(request, profile)
     scope = metrics.Scope(profile.scope)
     numbers = metrics.compute(scope, period)
-    weeks = metrics.weekly(scope, period)
     cards = [{"label": t["metrics"][k], "value": _fmt(k, numbers[k])} for k in OVERVIEW_CARDS]
-    return render(request, "observers/overview.html",
-                  _context(request, profile, "overview", period=period, cards=cards, chart=_chart(weeks), **filters))
+    return render(request, "observers/overview.html", _context(
+        request, profile, "overview", period=period, groups=_groups(t, numbers), cards=cards,
+        chart=_chart(metrics.weekly(scope, period)), **filters))
 
 
 @observer_page("businesses", records=True)
@@ -220,7 +238,8 @@ def businesses(request, profile):
     period, filters = _period(request, profile)
     rows = [{
         "name": _business_label(profile, t, r["business"]),
-        "jobs": r["jobs_posted"], "days": r["work_days_completed"],
+        "status": t["statuses"]["business"].get(r["status"], r["status"]),
+        "jobs": r["jobs"], "upcoming": r["upcoming"], "days": r["work_days_completed"],
         "same_day": _fmt("paid_same_day_pct", r["paid_same_day_pct"]),
         "confirmed": _fmt("confirmed_by_workers_pct", r["confirmed_by_workers_pct"]),
         "open_disputes": r["open_disputes"],
@@ -239,6 +258,8 @@ def activity(request, profile):
         details = []
         if named and ev.get("job"):
             details.append(ev["job"].title)  # free text written by the business: named level only
+        if ev["type"] == "job_posted":
+            details.append(f"{t['work_date']} {ev['job'].work_date}")
         if ev["type"] == "payment_declared":
             details.append(f"{ev['amount'] // 100} {'₪' if ev['currency'] == 'ILS' else ev['currency']}")
             ref = (ev.get("reference") or "").strip()
@@ -261,20 +282,31 @@ def activity(request, profile):
 
 @observer_page("export")
 def export_csv(request, profile):
-    """Weekly aggregate numbers only (no individual records), plus one row for the whole period.
-    All time by default, the chosen dates otherwise (same rule as the pages)."""
+    """Aggregate numbers only (no individual records): one row per week, then the totals by status.
+    Everything by default, the chosen dates otherwise (same rule as the pages)."""
     period, _ = _period(request, profile)
     scope = metrics.Scope(profile.scope)
     response = HttpResponse(content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="wathb_weekly_{period.start}_{period.end}.csv"'
-    response.write("﻿")  # Excel opens UTF-8 correctly
+    response["Content-Disposition"] = f'attachment; filename="wathb_{period.start or "all"}_{period.end or "all"}.csv"'
+    response.write("\ufeff")  # Excel opens UTF-8 correctly
     writer = csv.writer(response)
-    writer.writerow(["week_start", "week_end", *metrics.WEEKLY_FIELDS, "businesses_posted_again"])
+    writer.writerow(["week_start", "week_end", *metrics.WEEKLY_FIELDS])
     for w in metrics.weekly(scope, period):
-        writer.writerow([w["start"], w["end"], *[_csv(w[f]) for f in metrics.WEEKLY_FIELDS], ""])
-    total = metrics.compute(scope, period)
-    writer.writerow([period.start, period.end, *[_csv(total[f]) for f in metrics.WEEKLY_FIELDS],
-                     total["businesses_posted_again"]])
+        writer.writerow([w["start"], w["end"], *[w[f] for f in metrics.WEEKLY_FIELDS]])
+    n = metrics.compute(scope, period)
+    writer.writerow([])
+    writer.writerow(["metric", "value"])
+    writer.writerow(["period", f"{period.start or 'all'} to {period.end or 'all'}"])
+    for key in ("businesses", "jobs", "applications", "tasks", "wages", "disputes"):
+        writer.writerow([f"{key}_total", n[key]["total"]])
+        for status_value, count in n[key]["by_status"].items():
+            writer.writerow([f"{key}_{status_value.lower()}", count])
+    writer.writerow(["jobs_upcoming", n["jobs"]["upcoming"]])
+    for key in ("total", "verified", "pending"):
+        writer.writerow([f"workers_{key}", n["workers"][key]])
+    for key in ("work_days_completed", "payments_declared", "receipts_confirmed", "businesses_posted_again",
+                "paid_same_day_pct", "confirmed_by_workers_pct", "median_hours_to_payment"):
+        writer.writerow([key, _csv(n[key])])
     return response
 
 

@@ -1,13 +1,22 @@
 {% extends "observers/base.html" %}
 {% block content %}
 <h1>{{ t.overview }}</h1>
-<div class="cards">
+<div class="groups">
+  {% for g in groups %}
+  <div class="card group">
+    <div class="gh"><span class="gt">{{ g.title }}</span><span class="v"><bdi>{{ g.total }}</bdi></span></div>
+    <table class="st">{% for label, count in g.rows %}<tr><td>{{ label }}</td><td class="n"><bdi>{{ count }}</bdi></td></tr>{% endfor %}</table>
+  </div>
+  {% endfor %}
+</div>
+<div class="cards" style="margin-top:12px">
   {% for c in cards %}<div class="card"><div class="v"><bdi>{{ c.value }}</bdi></div><div class="l">{{ c.label }}</div></div>{% endfor %}
 </div>
+{% if chart.bars %}
 <div class="panel">
   <div class="legend">
-    <span><span class="sw" style="background:#006D6B"></span>{{ t.legend_days }}</span>
-    <span><span class="sw" style="background:#F4B432"></span>{{ t.legend_wages }}</span>
+    <span><span class="sw" style="background:#006D6B"></span>{{ t.chart_jobs }}</span>
+    <span><span class="sw" style="background:#F4B432"></span>{{ t.chart_payments }}</span>
   </div>
   <svg viewBox="0 0 {{ chart.width }} {{ chart.height }}" width="100%" style="max-width:{{ chart.width }}px" role="img" aria-label="{{ t.weekly_chart }}" dir="ltr">
     <line x1="24" y1="{{ chart.base_y }}" x2="{{ chart.width }}" y2="{{ chart.base_y }}" stroke="currentColor" stroke-opacity=".25"/>
@@ -18,5 +27,6 @@
     {% endfor %}
   </svg>
 </div>
+{% endif %}
 <p class="note">{{ t.export_note }}</p>
 {% endblock %}

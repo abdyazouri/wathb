@@ -4,10 +4,11 @@
 <div class="panel">
 {% if rows %}
 <table>
-  <thead><tr><th>{{ t.business }}</th><th>{{ t.metrics.jobs_posted }}</th><th>{{ t.metrics.work_days_completed }}</th>
-  <th>{{ t.metrics.paid_same_day_pct }}</th><th>{{ t.metrics.confirmed_by_workers_pct }}</th><th>{{ t.open_disputes }}</th></tr></thead>
+  <thead><tr><th>{{ t.business }}</th><th>{{ t.status }}</th><th>{{ t.groups.jobs }}</th><th>{{ t.upcoming_jobs }}</th>
+  <th>{{ t.metrics.work_days_completed }}</th><th>{{ t.metrics.paid_same_day_pct }}</th><th>{{ t.metrics.confirmed_by_workers_pct }}</th><th>{{ t.open_disputes }}</th></tr></thead>
   <tbody>{% for r in rows %}
-  <tr><td>{{ r.name }}</td><td>{{ r.jobs }}</td><td>{{ r.days }}</td><td><bdi>{{ r.same_day }}</bdi></td><td><bdi>{{ r.confirmed }}</bdi></td><td>{{ r.open_disputes }}</td></tr>
+  <tr><td>{{ r.name }}</td><td>{{ r.status }}</td><td>{{ r.jobs }}</td><td>{{ r.upcoming }}</td><td>{{ r.days }}</td>
+  <td><bdi>{{ r.same_day }}</bdi></td><td><bdi>{{ r.confirmed }}</bdi></td><td>{{ r.open_disputes }}</td></tr>
   {% endfor %}</tbody>
 </table>
 {% else %}<div class="empty">{{ t.empty }}</div>{% endif %}
